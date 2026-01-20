@@ -1,0 +1,4 @@
+AuthType Basic
+AuthName "Admin Area"
+AuthUserFile /home/yymmt/www/bbs-test/admin/.htpasswd
+Require valid-user

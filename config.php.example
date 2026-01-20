@@ -1,0 +1,11 @@
+<?php
+
+return [
+    'db' => [
+        'host' => 'host',
+        'dbname' => 'dbname',
+        'user' => 'user',
+        'password' => 'password',
+        'charset' => 'utf8mb4',
+    ],
+];

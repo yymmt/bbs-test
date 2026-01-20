@@ -1,0 +1,7 @@
+<svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" clip-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2">
+  <path d="M50 0c22.091 0 40 17.909 40 40 0 22.092-40 60-40 60S10 62.092 10 40C10 17.909 27.909 0 50 0Z" style="fill:#4285f4;"/>
+  <g transform="matrix(.31579 0 0 .31579 25.789 22.105)">
+    <path d="M100 100H0V0h100v100ZM80 70l-20-25-15 15-20-20L0 75V25h80v45Z" style="fill:#fff;"/>
+    <circle cx="65" cy="40" r="10" style="fill:#fff;"/>
+  </g>
+</svg>
