@@ -1,0 +1,6 @@
+/config.php
+/admin/.htpasswd
+*.log
+.DS_Store
+.idea/
+.vscode/
