@@ -51,32 +51,28 @@ try {
         echo json_encode(['posts' => $stmt->fetchAll()]);
 
     } elseif ($action === 'create_post') {
-        if (empty($input['name']) || empty($input['body']) || empty($input['password'])) {
+        if (empty($input['name']) || empty($input['body'])) {
             throw new Exception('Missing required fields');
         }
-        $stmt = $pdo->prepare("INSERT INTO posts (name, body, password_hash) VALUES (?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO posts (name, body) VALUES (?, ?)");
         $stmt->execute([
             $input['name'],
-            $input['body'],
-            password_hash($input['password'], PASSWORD_DEFAULT)
+            $input['body']
         ]);
         echo json_encode(['success' => true]);
 
     } elseif ($action === 'delete_post') {
-        if (empty($input['id']) || empty($input['password'])) {
+        if (empty($input['id'])) {
             throw new Exception('Missing required fields');
         }
-        $stmt = $pdo->prepare("SELECT password_hash FROM posts WHERE id = ?");
+        $stmt = $pdo->prepare("DELETE FROM posts WHERE id = ?");
         $stmt->execute([$input['id']]);
-        $post = $stmt->fetch();
-
-        if ($post && password_verify($input['password'], $post['password_hash'])) {
-            $delStmt = $pdo->prepare("DELETE FROM posts WHERE id = ?");
-            $delStmt->execute([$input['id']]);
+        
+        if ($stmt->rowCount() > 0) {
             echo json_encode(['success' => true]);
         } else {
             http_response_code(400);
-            echo json_encode(['error' => 'Invalid password or id']);
+            echo json_encode(['error' => 'Invalid id']);
         }
     } else {
         http_response_code(400);
