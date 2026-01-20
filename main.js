@@ -109,8 +109,7 @@ async function handlePostSubmit(e) {
 }
 
 async function handleDelete(id) {
-  const password = prompt('Enter delete password:');
-  if (!password) return;
+  if (!confirm('Are you sure you want to delete this post?')) return;
 
   try {
     const response = await fetch(API_URL, {
@@ -119,7 +118,7 @@ async function handleDelete(id) {
         'Content-Type': 'application/json',
         'X-CSRF-TOKEN': csrfToken
       },
-      body: JSON.stringify({ action: 'delete_post', id, password })
+      body: JSON.stringify({ action: 'delete_post', id })
     });
     const data = await response.json();
     if (data.success) {

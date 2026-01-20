@@ -1,4 +1,8 @@
 Gemini Code Assist 向けの指示テキストです。
+仕様変更を指示した場合は、基本的にまずai.txtだけを修正してください。その時、他のファイルは変更しないでください。
+指示した仕様変更のうち、現在のai.txtの記載粒度よりも細かい部分は、ai.txtに反映せず、単に覚えておいてください(Gemini Code Assist のコンテキストに保持しておいてください)。
+ai.txtの変更をこちらで確認した後、こちらから他のファイル修正を指示します。
+このとき、修正が必要なファイルのうち、Gemini Code Assistから見えないファイル(追加・編集できないファイル)があれば、先にそのファイル一覧だけを教えて下さい。
 
 # プロジェクト概要
 さくらのレンタルサーバ上で動作する簡易掲示板システムの構築。
@@ -19,7 +23,9 @@ SPA (Single Page Application) 構成とする。
 - /migration/
 - /admin/
   - .htaccess
+  - index.php
   - migrate.php
+  - deploy.php
 
 # 制約事項
 - Laravel等のフレームワークや外部ライブラリは極力使用しない（標準関数中心で実装）。
@@ -41,19 +47,22 @@ SPA (Single Page Application) 構成とする。
 - DB環境: 本番用とテスト用でデータベースを分ける。
 - マイグレーション: SQLファイルを /migration/ に配置し、/admin/migrate.php で管理・実行する。
 - マイグレーション管理: migrates テーブルを作成し、実行済みのSQLファイルは再実行しないように制御する。
-- 管理ツール: /admin/ 配下に配置し、Basic認証(.htaccess)等で厳重に保護する。
+- 管理ツール: /admin/ 配下に配置し、Basic認証(.htaccess)等でアクセス制限を行う。
 
 # 機能要件 (要件定義)
 - 投稿一覧の取得: 最新の投稿順に表示する。ページネーション対応。
-- 新規投稿: 名前、本文を入力して投稿する。
-- 投稿削除: 投稿時に設定した削除パスワードを用いて削除できる。
+- 新規投稿: 名前、本文を入力して投稿する（削除用パスワードは不要）。
+- 投稿削除: 削除ボタンを押下することで削除できる（パスワード不要）。
+
+# 管理ツール仕様 (詳細設計)
+- /admin/index.php: deploy.php, migrate.php へのリンクを表示。現在の状態として `git log -1` の結果を表示する。
+- /admin/deploy.php: `git pull` を実行する。
 
 # データベース設計 (詳細設計)
 ## posts テーブル
 - id: INT AUTO_INCREMENT PRIMARY KEY
 - name: VARCHAR(50) NOT NULL
 - body: TEXT NOT NULL
-- password_hash: VARCHAR(255) -- 削除用パスワード
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 
 ## migrates テーブル (マイグレーション管理)
@@ -65,5 +74,5 @@ SPA (Single Page Application) 構成とする。
 - POST /api.php
   - action=init_csrf: CSRFトークンを取得。
   - action=get_posts: 投稿一覧を取得。limit, offsetパラメータ対応。
-  - action=create_post: 新規投稿作成。name, body, password必須。
-  - action=delete_post: 投稿削除。id, password必須。
+  - action=create_post: 新規投稿作成。name, body必須。
+  - action=delete_post: 投稿削除。id必須。
