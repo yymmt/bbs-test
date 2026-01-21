@@ -22,6 +22,9 @@ try {
     $input = json_decode(file_get_contents('php://input'), true);
     $action = $input['action'] ?? '';
 
+    // ユーザーUUID取得
+    $user_uuid = $_SERVER['HTTP_X_USER_ID'] ?? '';
+
     // CSRFトークン初期化
     if ($action === 'init_csrf') {
         if (empty($_SESSION['csrf_token'])) {
@@ -44,35 +47,37 @@ try {
         $limit = isset($input['limit']) ? (int)$input['limit'] : 10;
         $offset = isset($input['offset']) ? (int)$input['offset'] : 0;
 
-        $stmt = $pdo->prepare("SELECT id, name, body, created_at FROM posts ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        $stmt = $pdo->prepare("SELECT id, name, body, user_uuid, created_at FROM posts ORDER BY created_at DESC LIMIT ? OFFSET ?");
         $stmt->bindValue(1, $limit, PDO::PARAM_INT);
         $stmt->bindValue(2, $offset, PDO::PARAM_INT);
         $stmt->execute();
         echo json_encode(['posts' => $stmt->fetchAll()]);
 
     } elseif ($action === 'create_post') {
-        if (empty($input['name']) || empty($input['body'])) {
+        if (empty($input['name']) || empty($input['body']) || empty($user_uuid)) {
             throw new Exception('Missing required fields');
         }
-        $stmt = $pdo->prepare("INSERT INTO posts (name, body) VALUES (?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO posts (name, body, user_uuid) VALUES (?, ?, ?)");
         $stmt->execute([
             $input['name'],
-            $input['body']
+            $input['body'],
+            $user_uuid
         ]);
         echo json_encode(['success' => true]);
 
     } elseif ($action === 'delete_post') {
-        if (empty($input['id'])) {
+        if (empty($input['id']) || empty($user_uuid)) {
             throw new Exception('Missing required fields');
         }
-        $stmt = $pdo->prepare("DELETE FROM posts WHERE id = ?");
-        $stmt->execute([$input['id']]);
+        // 自身の投稿のみ削除可能
+        $stmt = $pdo->prepare("DELETE FROM posts WHERE id = ? AND user_uuid = ?");
+        $stmt->execute([$input['id'], $user_uuid]);
         
         if ($stmt->rowCount() > 0) {
             echo json_encode(['success' => true]);
         } else {
             http_response_code(400);
-            echo json_encode(['error' => 'Invalid id']);
+            echo json_encode(['error' => 'Invalid id or permission denied']);
         }
     } else {
         http_response_code(400);
