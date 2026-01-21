@@ -17,18 +17,21 @@ SPA (Single Page Application) 構成とする。
 - HTML/CSS/JavaScript (Vanilla JS)
 
 # ディレクトリ構成
-- /index.html
-- /main.js
-- /style.css
-- /api.php
 - /config.php
-- /images/
+- /docs/
+  - ai_context.md
 - /migration/
-- /admin/
-  - .htaccess
-  - index.php
-  - migrate.php
-  - deploy.php
+- /public/
+  - index.html
+  - main.js
+  - style.css
+  - api.php
+  - images/
+  - admin/
+    - .htaccess
+    - index.php
+    - migrate.php
+    - deploy.php
 
 # 制約事項
 - Laravel等のフレームワークや外部ライブラリは極力使用しない（標準関数中心で実装）。
@@ -51,6 +54,7 @@ SPA (Single Page Application) 構成とする。
 - 認証方式: LocalStorageにUUID (v4) を保存し、リクエストヘッダー (X-USER-ID) で送信することでユーザーを識別する（簡易認証）。
   - 将来対応: 機種変更等に対応するため、引き継ぎコード発行・入力機能の実装を検討する。
 - マイグレーション: SQLファイルを /migration/ に配置し、/admin/migrate.php で管理・実行する。
+  - 注意: MySQLのDDLは暗黙的コミットを引き起こすため、マイグレーション実行時はPHP側でのトランザクション制御を行わない。
 - マイグレーション管理: migrates テーブルを作成し、実行済みのSQLファイルは再実行しないように制御する。
 - 管理ツール: /admin/ 配下に配置し、Basic認証(.htaccess)等でアクセス制限を行う。
 

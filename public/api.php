@@ -6,9 +6,9 @@ header('Content-Type: application/json; charset=utf-8');
 // エラーハンドリング設定
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
-ini_set('error_log', __DIR__ . '/php-error.log');
+ini_set('error_log', __DIR__ . '/../php-error.log');
 
-$config = require __DIR__ . '/config.php';
+$config = require __DIR__ . '/../config.php';
 
 try {
     // DB接続

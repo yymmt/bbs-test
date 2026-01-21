@@ -5,7 +5,7 @@
 $git_log = shell_exec('git log -1 --pretty=format:"%h - %an, %ar : %s"');
 
 // git pull が必要か判定
-$repo_path = __DIR__ . '/../';
+$repo_path = __DIR__ . '/../../';
 $current_dir = getcwd();
 chdir($repo_path);
 
@@ -19,8 +19,8 @@ $is_pull_needed = ($local_hash !== $remote_hash);
 chdir($current_dir);
 
 // マイグレーションが必要か判定
-require_once __DIR__ . '/../config.php';
-$config = require __DIR__ . '/../config.php';
+require_once __DIR__ . '/../../config.php';
+$config = require __DIR__ . '/../../config.php';
 $is_migrate_needed = false;
 
 try {
@@ -34,7 +34,7 @@ try {
     } else {
         $stmt = $pdo->query("SELECT filename FROM migrates");
         $executedFiles = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        $files = glob(__DIR__ . '/../migration/*.sql');
+        $files = glob(__DIR__ . '/../../migration/*.sql');
         foreach ($files as $file) {
             if (!in_array(basename($file), $executedFiles)) {
                 $is_migrate_needed = true;
