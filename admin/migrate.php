@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../config.php';
 $config = require __DIR__ . '/../config.php';
 
-header('Content-Type: text/plain; charset=utf-8');
+$output = '';
 
 try {
     $dsn = "mysql:host={$config['db']['host']};dbname={$config['db']['dbname']};charset={$config['db']['charset']}";
@@ -42,16 +42,31 @@ try {
             $stmt = $pdo->prepare("INSERT INTO migrates (filename) VALUES (?)");
             $stmt->execute([$filename]);
             $pdo->commit();
-            echo "Executed: " . $filename . "\n";
+            $output .= "Executed: " . $filename . "\n";
         } catch (Exception $e) {
             $pdo->rollBack();
-            echo "Failed: " . $filename . " - " . $e->getMessage() . "\n";
-            exit(1); // エラー時は停止
+            $output .= "Failed: " . $filename . " - " . $e->getMessage() . "\n";
+            break; // エラー時は停止
         }
     }
-    echo "Migration completed.\n";
+    if (empty($e)) {
+        $output .= "Migration completed.\n";
+    }
 
 } catch (PDOException $e) {
-    http_response_code(500);
-    echo "Migration failed: " . $e->getMessage() . "\n";
+    $output .= "Migration failed: " . $e->getMessage() . "\n";
 }
+?>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Migration</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <h1>マイグレーション実行結果</h1>
+    <pre><?php echo htmlspecialchars($output, ENT_QUOTES, 'UTF-8'); ?></pre>
+    <a href="index.php">管理パネルに戻る</a>
+</body>
+</html>
