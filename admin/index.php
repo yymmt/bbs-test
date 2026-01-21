@@ -18,6 +18,13 @@ $git_log = shell_exec('git log -1 --pretty=format:"%h - %an, %ar : %s"');
     <p>最新のコミット:</p>
     <pre><?php echo htmlspecialchars($git_log ?: 'Gitリポジトリが見つからないか、コミットがありません。', ENT_QUOTES, 'UTF-8'); ?></pre>
 
+    <h3>GitHub リンク</h3>
+    <ul>
+        <li><a href="https://github.com/yymmt/bbs-test/commits/main/" target="_blank">mainブランチのコミット</a></li>
+        <li><a href="https://github.com/yymmt/bbs-test/commits/test/" target="_blank">testブランチのコミット</a></li>
+        <li><a href="https://github.com/yymmt/bbs-test/compare/main...test" target="_blank">main...testブランチの比較</a></li>
+    </ul>
+
     <h2>管理ツール</h2>
     <ul>
         <li><a href="deploy.php">デプロイ (git pull)</a></li>
