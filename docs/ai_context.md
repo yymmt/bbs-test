@@ -32,6 +32,7 @@ SPA (Single Page Application) 構成とする。
     - index.php
     - migrate.php
     - deploy.php
+    - error_log.php
 
 # 制約事項
 - Laravel等のフレームワークや外部ライブラリは極力使用しない（標準関数中心で実装）。
@@ -68,6 +69,7 @@ SPA (Single Page Application) 構成とする。
 - /admin/index.php: deploy.php, migrate.php へのリンクを表示。現在の状態として `git log -1` の結果を表示する。GitHubリンク（main/testコミット、比較）を表示する。git pullやマイグレーションが必要か判定し、不要な場合はリンクを無効化する。
 - /admin/deploy.php: `git pull` を実行する。
 - /admin/migrate.php: マイグレーションを実行する。style.cssを読み込み、管理パネルへの戻るリンクを表示する。
+- /admin/error_log.php: php-error.log の内容を表示する。
 
 # データベース設計 (詳細設計)
 ## posts テーブル
