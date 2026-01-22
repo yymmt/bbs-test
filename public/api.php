@@ -47,19 +47,19 @@ try {
         $limit = isset($input['limit']) ? (int)$input['limit'] : 10;
         $offset = isset($input['offset']) ? (int)$input['offset'] : 0;
 
-        $stmt = $pdo->prepare("SELECT id, name, body, user_uuid, created_at FROM posts ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        // usersテーブルと結合して名前を取得
+        $stmt = $pdo->prepare("SELECT p.id, u.name, p.body, p.user_uuid, p.created_at FROM posts p LEFT JOIN users u ON p.user_uuid = u.user_uuid ORDER BY p.created_at DESC LIMIT ? OFFSET ?");
         $stmt->bindValue(1, $limit, PDO::PARAM_INT);
         $stmt->bindValue(2, $offset, PDO::PARAM_INT);
         $stmt->execute();
         echo json_encode(['posts' => $stmt->fetchAll()]);
 
     } elseif ($action === 'create_post') {
-        if (empty($input['name']) || empty($input['body']) || empty($user_uuid)) {
+        if (empty($input['body']) || empty($user_uuid)) {
             throw new Exception('Missing required fields');
         }
-        $stmt = $pdo->prepare("INSERT INTO posts (name, body, user_uuid) VALUES (?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO posts (body, user_uuid) VALUES (?, ?)");
         $stmt->execute([
-            $input['name'],
             $input['body'],
             $user_uuid
         ]);
@@ -79,6 +79,22 @@ try {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid id or permission denied']);
         }
+
+    } elseif ($action === 'get_user') {
+        $stmt = $pdo->prepare("SELECT name FROM users WHERE user_uuid = ?");
+        $stmt->execute([$user_uuid]);
+        $user = $stmt->fetch();
+        echo json_encode(['name' => $user['name'] ?? '']);
+
+    } elseif ($action === 'update_user') {
+        if (empty($input['name']) || empty($user_uuid)) {
+            throw new Exception('Missing required fields');
+        }
+        // 名前を保存または更新
+        $stmt = $pdo->prepare("INSERT INTO users (user_uuid, name) VALUES (?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)");
+        $stmt->execute([$user_uuid, $input['name']]);
+        echo json_encode(['success' => true]);
+
     } else {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid action']);

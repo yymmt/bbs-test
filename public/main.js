@@ -10,9 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
 async function init() {
   ensureUuid();
   await fetchCsrfToken();
+  loadUser();
   loadPosts();
 
   document.getElementById('post-form').addEventListener('submit', handlePostSubmit);
+  document.getElementById('user-form').addEventListener('submit', handleUserUpdate);
   document.getElementById('prev-btn').addEventListener('click', () => changePage(-1));
   document.getElementById('next-btn').addEventListener('click', () => changePage(1));
 }
@@ -44,6 +46,26 @@ async function fetchCsrfToken() {
     csrfToken = data.token;
   } catch (error) {
     console.error('Failed to init CSRF', error);
+  }
+}
+
+async function loadUser() {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
+      },
+      body: JSON.stringify({ action: 'get_user' })
+    });
+    const data = await response.json();
+    if (data.name) {
+      document.getElementById('username').value = data.name;
+    }
+  } catch (error) {
+    console.error('Failed to load user', error);
   }
 }
 
@@ -81,7 +103,7 @@ function renderPosts(posts) {
     
     const meta = document.createElement('div');
     meta.className = 'post-meta';
-    meta.textContent = `${post.id}. ${post.name} - ${post.created_at}`;
+    meta.textContent = `${post.id}. ${post.name || 'Unknown'} - ${post.created_at}`;
 
     const body = document.createElement('div');
     body.className = 'post-body';
@@ -128,6 +150,35 @@ async function handlePostSubmit(e) {
     }
   } catch (error) {
     console.error('Post failed', error);
+  }
+}
+
+async function handleUserUpdate(e) {
+  e.preventDefault();
+  const form = e.target;
+  const formData = new FormData(form);
+  const payload = Object.fromEntries(formData.entries());
+  payload.action = 'update_user';
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (data.success) {
+      alert('Name updated!');
+      loadPosts(); // 名前更新を投稿一覧にも反映
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Update user failed', error);
   }
 }
 

@@ -1,11 +1,11 @@
 Gemini Code Assist 向けの指示テキストです。
 
 - 仕様変更の指示時:
-  1. まず ai.txt のみを修正し、他ファイルは変更しないでください。
-  2. ai.txt の粒度より細かい仕様は、ai.txt には書かずコンテキストとして記憶してください。
-  3. 修正が必要なファイル一覧と、それらがコンテキストに含まれているか（編集可能か）を報告してください。
+  1. まず ai_context.md のみを修正し、他ファイルは変更しないでください。
+  2. ai_context.md の粒度より細かい仕様は、ai_context.md には書かずコンテキストとして記憶してください。
+  3. 修正が必要なファイル一覧と、それらがコンテキストに含まれているか（編集可能か）を報告してください。ファイルの新規作成が必要な場合はファイル名を提案してください。
 - コード修正の指示時:
-  - ai.txt の内容に従い、対象ファイルを修正してください。
+  - ai_context.md の内容に従い、対象ファイルを修正してください。
 
 # プロジェクト概要
 さくらのレンタルサーバ上で動作する簡易掲示板システムの構築。
@@ -59,8 +59,9 @@ SPA (Single Page Application) 構成とする。
 - 管理ツール: /admin/ 配下に配置し、Basic認証(.htaccess)等でアクセス制限を行う。
 
 # 機能要件 (要件定義)
-- 投稿一覧の取得: 最新の投稿順に表示する。ページネーション対応。
-- 新規投稿: 名前、本文を入力して投稿する（削除用パスワードは不要）。
+- 投稿一覧の取得: 最新の投稿順に表示する。ページネーション対応。投稿者の名前はusersテーブルから取得する。
+- 新規投稿: 本文を入力して投稿する（名前はユーザー設定のものを使用）。
+- ユーザー設定: 自身の名前を登録・変更できる。
 - 投稿削除: 自身の投稿のみ削除可能とする（UUIDで判定）。パスワード入力は不要。
 
 # 管理ツール仕様 (詳細設計)
@@ -71,10 +72,16 @@ SPA (Single Page Application) 構成とする。
 # データベース設計 (詳細設計)
 ## posts テーブル
 - id: INT AUTO_INCREMENT PRIMARY KEY
-- name: VARCHAR(50) NOT NULL
 - user_uuid: VARCHAR(36) NOT NULL -- 投稿者のUUID
 - body: TEXT NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+
+## users テーブル
+- id: INT AUTO_INCREMENT PRIMARY KEY
+- user_uuid: VARCHAR(36) NOT NULL UNIQUE
+- name: VARCHAR(50) NOT NULL
+- created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 
 ## migrates テーブル (マイグレーション管理)
 - id: INT AUTO_INCREMENT PRIMARY KEY
@@ -85,6 +92,8 @@ SPA (Single Page Application) 構成とする。
 - POST /api.php
   - リクエストヘッダー: `X-USER-ID` にUUIDを含める。
   - action=init_csrf: CSRFトークンを取得。
-  - action=get_posts: 投稿一覧を取得。limit, offsetパラメータ対応。
-  - action=create_post: 新規投稿作成。name, body必須。
+  - action=get_posts: 投稿一覧を取得（usersテーブルと結合）。limit, offsetパラメータ対応。
+  - action=create_post: 新規投稿作成。body必須。
   - action=delete_post: 投稿削除。id必須。
+  - action=get_user: 現在のユーザー情報を取得。
+  - action=update_user: ユーザー名を更新。name必須。
