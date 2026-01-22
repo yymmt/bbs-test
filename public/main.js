@@ -17,6 +17,11 @@ async function init() {
   document.getElementById('user-form').addEventListener('submit', handleUserUpdate);
   document.getElementById('prev-btn').addEventListener('click', () => changePage(-1));
   document.getElementById('next-btn').addEventListener('click', () => changePage(1));
+
+  document.getElementById('menu-btn').addEventListener('click', toggleMenu);
+  document.querySelectorAll('.nav-menu a').forEach(link => {
+    link.addEventListener('click', handleNavClick);
+  });
 }
 
 function ensureUuid() {
@@ -215,4 +220,22 @@ function changePage(direction) {
 function updatePagination(count) {
   document.getElementById('prev-btn').disabled = currentOffset === 0;
   document.getElementById('next-btn').disabled = count < LIMIT;
+}
+
+function toggleMenu() {
+  document.getElementById('nav-menu').classList.toggle('hidden');
+}
+
+function handleNavClick(e) {
+  e.preventDefault();
+  const targetId = e.target.dataset.target;
+  
+  // Hide all views
+  document.getElementById('home-view').classList.add('hidden');
+  document.getElementById('settings-view').classList.add('hidden');
+  
+  // Show target view
+  document.getElementById(targetId).classList.remove('hidden');
+  
+  toggleMenu(); // Close menu
 }

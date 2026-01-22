@@ -15,6 +15,10 @@ SPA (Single Page Application) 構成とする。
 - PHP 8.1.29
 - MySQL 8.0
 - HTML/CSS/JavaScript (Vanilla JS)
+- 外部ライブラリ:
+  - CSSリセット: ress.min.css
+  - フォント: Noto Sans JP (Google Fonts)
+  - アイコン: Bootstrap Icons
 
 # ディレクトリ構成
 - /config.php
@@ -36,7 +40,7 @@ SPA (Single Page Application) 構成とする。
 
 # 制約事項
 - Laravel等のフレームワークや外部ライブラリは極力使用しない（標準関数中心で実装）。
-- クライアント側もAngular等のフレームワークやjQueryなどのライブラリを使用しない。
+- クライアント側もAngular等のフレームワークやjQueryなどのライブラリを使用しない（ただし、指定されたCSS/Fontライブラリは除く）。
 - ソースコードへのコメント記述は最小限にする。
 
 # 実装・セキュリティ方針
@@ -51,6 +55,7 @@ SPA (Single Page Application) 構成とする。
 - API設計: POSTメソッドのみ受け付け、ボディ内の action パラメータで処理を分岐させる。
 - 設定管理: DB接続情報は /config.php に分離する。config.php はGit管理外とし、デプロイ先環境ごとに適切なファイルを配置する。ただし、サンプル用にconfig.php.exampleはGit管理する。
 - CSRF対策: Synchronizer Token Patternを採用する（セッションとリクエストでトークン照合）。
+- DB照合順序: 全テーブルで `utf8mb4_general_ci` に統一する。
 - DB環境: 本番用とテスト用でデータベースを分ける。
 - 認証方式: LocalStorageにUUID (v4) を保存し、リクエストヘッダー (X-USER-ID) で送信することでユーザーを識別する（簡易認証）。
   - 将来対応: 機種変更等に対応するため、引き継ぎコード発行・入力機能の実装を検討する。
@@ -62,6 +67,9 @@ SPA (Single Page Application) 構成とする。
 # 機能要件 (要件定義)
 - 投稿一覧の取得: 最新の投稿順に表示する。ページネーション対応。投稿者の名前はusersテーブルから取得する。
 - 新規投稿: 本文を入力して投稿する（名前はユーザー設定のものを使用）。
+- 画面構成: ハンバーガーメニューによる画面切り替え（SPA）。
+  - 投稿一覧画面（ホーム）
+  - ユーザー設定画面
 - ユーザー設定: 自身の名前を登録・変更できる。
 - 投稿削除: 自身の投稿のみ削除可能とする（UUIDで判定）。パスワード入力は不要。
 

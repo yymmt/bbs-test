@@ -4,44 +4,60 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple BBS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/ress@4.0.0/dist/ress.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header class="site-header">
+        <button id="menu-btn" class="menu-btn"><i class="bi bi-list"></i></button>
         <h1>Simple BBS</h1>
+        <nav id="nav-menu" class="nav-menu hidden">
+            <ul>
+                <li><a href="#" data-target="home-view">Home</a></li>
+                <li><a href="#" data-target="settings-view">User Settings</a></li>
+            </ul>
+        </nav>
     </header>
 
     <main class="container">
-        <section class="user-settings-section">
-            <h2>User Settings</h2>
-            <form id="user-form">
-                <div class="form-group">
-                    <label for="username">Your Name</label>
-                    <input type="text" id="username" name="name" required maxlength="50" placeholder="Enter your name">
-                    <button type="submit">Save Name</button>
-                </div>
-            </form>
-        </section>
+        <div id="settings-view" class="hidden">
+            <section class="user-settings-section">
+                <h2>User Settings</h2>
+                <form id="user-form">
+                    <div class="form-group">
+                        <label for="username">Your Name</label>
+                        <input type="text" id="username" name="name" required maxlength="50" placeholder="Enter your name">
+                        <button type="submit">Save Name</button>
+                    </div>
+                </form>
+            </section>
+        </div>
 
-        <section class="post-form-section">
-            <h2>New Post</h2>
-            <form id="post-form">
-                <div class="form-group">
-                    <label for="body">Message</label>
-                    <textarea id="body" name="body" required></textarea>
-                </div>
-                <button type="submit">Post</button>
-            </form>
-        </section>
+        <div id="home-view">
+            <section class="post-form-section">
+                <h2>New Post</h2>
+                <form id="post-form">
+                    <div class="form-group">
+                        <label for="body">Message</label>
+                        <textarea id="body" name="body" required></textarea>
+                    </div>
+                    <button type="submit">Post</button>
+                </form>
+            </section>
 
-        <section class="post-list-section">
-            <h2>Posts</h2>
-            <div id="posts-container"></div>
-            <div class="pagination">
-                <button id="prev-btn" disabled>Previous</button>
-                <button id="next-btn">Next</button>
-            </div>
-        </section>
+            <section class="post-list-section">
+                <h2>Posts</h2>
+                <div id="posts-container"></div>
+                <div class="pagination">
+                    <button id="prev-btn" disabled>Previous</button>
+                    <button id="next-btn">Next</button>
+                </div>
+            </section>
+        </div>
     </main>
     <script src="main.js"></script>
 </body>
