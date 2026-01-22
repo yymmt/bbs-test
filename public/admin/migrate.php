@@ -1,7 +1,7 @@
 <?php
 
-require_once __DIR__ . '/../config.php';
-$config = require __DIR__ . '/../config.php';
+require_once __DIR__ . '/../../config.php';
+$config = require __DIR__ . '/../../config.php';
 
 $output = '';
 
@@ -22,7 +22,7 @@ try {
     $stmt = $pdo->query("SELECT filename FROM migrates");
     $executedFiles = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-    $files = glob(__DIR__ . '/../migration/*.sql');
+    $files = glob(__DIR__ . '/../../migration/*.sql');
     sort($files); // ファイル名順に実行
 
     foreach ($files as $file) {
@@ -37,14 +37,11 @@ try {
         if (!$sql) continue;
 
         try {
-            $pdo->beginTransaction();
             $pdo->exec($sql);
             $stmt = $pdo->prepare("INSERT INTO migrates (filename) VALUES (?)");
             $stmt->execute([$filename]);
-            $pdo->commit();
             $output .= "Executed: " . $filename . "\n";
         } catch (Exception $e) {
-            $pdo->rollBack();
             $output .= "Failed: " . $filename . " - " . $e->getMessage() . "\n";
             break; // エラー時は停止
         }

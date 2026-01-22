@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function init() {
+  ensureUuid();
   await fetchCsrfToken();
   loadPosts();
 
@@ -16,11 +17,27 @@ async function init() {
   document.getElementById('next-btn').addEventListener('click', () => changePage(1));
 }
 
+function ensureUuid() {
+  if (!localStorage.getItem('user_uuid')) {
+    let uuid;
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      uuid = crypto.randomUUID();
+    } else {
+      // Fallback for environments without crypto.randomUUID
+      uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+    localStorage.setItem('user_uuid', uuid);
+  }
+}
+
 async function fetchCsrfToken() {
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-USER-ID': localStorage.getItem('user_uuid') },
       body: JSON.stringify({ action: 'init_csrf' })
     });
     const data = await response.json();
@@ -36,7 +53,8 @@ async function loadPosts() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
       },
       body: JSON.stringify({
         action: 'get_posts',
@@ -56,6 +74,7 @@ function renderPosts(posts) {
   const container = document.getElementById('posts-container');
   container.innerHTML = '';
 
+  const myUuid = localStorage.getItem('user_uuid');
   posts.forEach(post => {
     const div = document.createElement('div');
     div.className = 'post-item';
@@ -68,13 +87,16 @@ function renderPosts(posts) {
     body.className = 'post-body';
     body.textContent = post.body;
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'Delete';
-    deleteBtn.onclick = () => handleDelete(post.id);
-
     div.appendChild(meta);
     div.appendChild(body);
-    div.appendChild(deleteBtn);
+
+    if (post.user_uuid === myUuid) {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.onclick = () => handleDelete(post.id);
+      div.appendChild(deleteBtn);
+    }
+
     container.appendChild(div);
   });
 }
@@ -91,7 +113,8 @@ async function handlePostSubmit(e) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
       },
       body: JSON.stringify(payload)
     });
@@ -116,7 +139,8 @@ async function handleDelete(id) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
       },
       body: JSON.stringify({ action: 'delete_post', id })
     });

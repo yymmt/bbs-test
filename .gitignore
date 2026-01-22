@@ -1,5 +1,5 @@
 /config.php
-/admin/.htpasswd
+.htpasswd
 *.log
 .DS_Store
 .idea/

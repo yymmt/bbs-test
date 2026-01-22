@@ -17,18 +17,21 @@ SPA (Single Page Application) 構成とする。
 - HTML/CSS/JavaScript (Vanilla JS)
 
 # ディレクトリ構成
-- /index.html
-- /main.js
-- /style.css
-- /api.php
 - /config.php
-- /images/
+- /docs/
+  - ai_context.md
 - /migration/
-- /admin/
-  - .htaccess
-  - index.php
-  - migrate.php
-  - deploy.php
+- /public/
+  - index.html
+  - main.js
+  - style.css
+  - api.php
+  - images/
+  - admin/
+    - .htaccess
+    - index.php
+    - migrate.php
+    - deploy.php
 
 # 制約事項
 - Laravel等のフレームワークや外部ライブラリは極力使用しない（標準関数中心で実装）。
@@ -48,17 +51,20 @@ SPA (Single Page Application) 構成とする。
 - 設定管理: DB接続情報は /config.php に分離する。config.php はGit管理外とし、デプロイ先環境ごとに適切なファイルを配置する。ただし、サンプル用にconfig.php.exampleはGit管理する。
 - CSRF対策: Synchronizer Token Patternを採用する（セッションとリクエストでトークン照合）。
 - DB環境: 本番用とテスト用でデータベースを分ける。
+- 認証方式: LocalStorageにUUID (v4) を保存し、リクエストヘッダー (X-USER-ID) で送信することでユーザーを識別する（簡易認証）。
+  - 将来対応: 機種変更等に対応するため、引き継ぎコード発行・入力機能の実装を検討する。
 - マイグレーション: SQLファイルを /migration/ に配置し、/admin/migrate.php で管理・実行する。
+  - 注意: MySQLのDDLは暗黙的コミットを引き起こすため、マイグレーション実行時はPHP側でのトランザクション制御を行わない。
 - マイグレーション管理: migrates テーブルを作成し、実行済みのSQLファイルは再実行しないように制御する。
 - 管理ツール: /admin/ 配下に配置し、Basic認証(.htaccess)等でアクセス制限を行う。
 
 # 機能要件 (要件定義)
 - 投稿一覧の取得: 最新の投稿順に表示する。ページネーション対応。
 - 新規投稿: 名前、本文を入力して投稿する（削除用パスワードは不要）。
-- 投稿削除: 削除ボタンを押下することで削除できる（パスワード不要）。
+- 投稿削除: 自身の投稿のみ削除可能とする（UUIDで判定）。パスワード入力は不要。
 
 # 管理ツール仕様 (詳細設計)
-- /admin/index.php: deploy.php, migrate.php へのリンクを表示。現在の状態として `git log -1` の結果を表示する。GitHubリンク（main/testコミット、比較）を表示する。
+- /admin/index.php: deploy.php, migrate.php へのリンクを表示。現在の状態として `git log -1` の結果を表示する。GitHubリンク（main/testコミット、比較）を表示する。git pullやマイグレーションが必要か判定し、不要な場合はリンクを無効化する。
 - /admin/deploy.php: `git pull` を実行する。
 - /admin/migrate.php: マイグレーションを実行する。style.cssを読み込み、管理パネルへの戻るリンクを表示する。
 
@@ -66,6 +72,7 @@ SPA (Single Page Application) 構成とする。
 ## posts テーブル
 - id: INT AUTO_INCREMENT PRIMARY KEY
 - name: VARCHAR(50) NOT NULL
+- user_uuid: VARCHAR(36) NOT NULL -- 投稿者のUUID
 - body: TEXT NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 
@@ -76,6 +83,7 @@ SPA (Single Page Application) 構成とする。
 
 # API仕様 (詳細設計)
 - POST /api.php
+  - リクエストヘッダー: `X-USER-ID` にUUIDを含める。
   - action=init_csrf: CSRFトークンを取得。
   - action=get_posts: 投稿一覧を取得。limit, offsetパラメータ対応。
   - action=create_post: 新規投稿作成。name, body必須。
