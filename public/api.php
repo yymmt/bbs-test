@@ -100,7 +100,17 @@ try {
         echo json_encode(['error' => 'Invalid action']);
     }
 } catch (Exception $e) {
-    error_log($e->getMessage());
+    // エラーログの詳細化
+    $log_message = sprintf(
+        "API Error [%s]: %s\nLocation: %s(%d)\nInput: %s\nTrace:\n%s",
+        $action ?? 'unknown',
+        $e->getMessage(),
+        $e->getFile(),
+        $e->getLine(),
+        json_encode($input, JSON_UNESCAPED_UNICODE),
+        $e->getTraceAsString()
+    );
+    error_log($log_message);
     http_response_code(500);
     echo json_encode(['error' => 'Internal Server Error']);
 }
