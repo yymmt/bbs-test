@@ -84,6 +84,9 @@ try {
                 マイグレーション実行 - 完了済み
             <?php endif; ?>
         </li>
+        <li>
+            <a href="error_log.php">エラーログ閲覧</a>
+        </li>
     </ul>
 </body>
 </html>
