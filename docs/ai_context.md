@@ -8,7 +8,8 @@ Gemini Code Assist 向けの指示テキストです。
   - ai_context.md の内容に従い、対象ファイルを修正してください。
 
 # プロジェクト概要
-さくらのレンタルサーバ上で動作する簡易掲示板システムの構築。
+さくらのレンタルサーバ上で動作する、スレッド形式の掲示板システムの構築。
+LINEのように、招待されたユーザーのみが閲覧可能なスレッドを作成し、コミュニケーションを行う（クローズドなコミュニティ）。
 SPA (Single Page Application) 構成とする。
 
 # 技術スタック
@@ -63,14 +64,20 @@ SPA (Single Page Application) 構成とする。
   - 注意: MySQLのDDLは暗黙的コミットを引き起こすため、マイグレーション実行時はPHP側でのトランザクション制御を行わない。
 - マイグレーション管理: migrates テーブルを作成し、実行済みのSQLファイルは再実行しないように制御する。
 - 管理ツール: /admin/ 配下に配置し、Basic認証(.htaccess)等でアクセス制限を行う。
+- キャッシュ対策: `index.html` で読み込むCSS/JSファイルにはクエリパラメータ（例: `?v=1`）を付与し、変更時に値を更新することでブラウザキャッシュを回避する。
 
 # 機能要件 (要件定義)
-- 投稿一覧の取得: 最新の投稿順に表示する。ページネーション対応。投稿者の名前はusersテーブルから取得する。
-- 新規投稿: 本文を入力して投稿する（名前はユーザー設定のものを使用）。
+- 初期設定 (Welcome画面): 初回アクセス時（UUID未保持）に表示。
+  - ユーザー名登録: 名前を入力して利用開始する。
+  - 引き継ぎ: 引き継ぎコードを入力し、既存のUUIDを設定する。
+- スレッド一覧（ホーム）: 自身が参加しているスレッドを最終更新日時の降順で表示する。
+  - スレッド新規作成: スレッド名を入力して作成する（作成者は自動的に参加）。
+- スレッド詳細（投稿一覧）: 選択したスレッドの投稿一覧を表示する。ページネーション対応。
+  - 新規投稿: スレッド内にメッセージを投稿する。
 - 画面構成: ハンバーガーメニューによる画面切り替え（SPA）。
-  - 投稿一覧画面（ホーム）
+  - スレッド一覧画面（ホーム）
   - ユーザー設定画面
-- ユーザー設定: 自身の名前を登録・変更できる。
+- ユーザー設定: 自身の名前変更、引き継ぎコード発行（将来対応）など。
 - 投稿削除: 自身の投稿のみ削除可能とする（UUIDで判定）。パスワード入力は不要。
 
 # 管理ツール仕様 (詳細設計)
@@ -82,9 +89,24 @@ SPA (Single Page Application) 構成とする。
 # データベース設計 (詳細設計)
 ## posts テーブル
 - id: INT AUTO_INCREMENT PRIMARY KEY
+- thread_id: INT NOT NULL -- スレッドID
 - user_uuid: VARCHAR(36) NOT NULL -- 投稿者のUUID
 - body: TEXT NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- FOREIGN KEY (thread_id) REFERENCES threads(id)
+
+## threads テーブル
+- id: INT AUTO_INCREMENT PRIMARY KEY
+- title: VARCHAR(100) NOT NULL
+- created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+## thread_users テーブル
+- id: INT AUTO_INCREMENT PRIMARY KEY
+- thread_id: INT NOT NULL
+- user_uuid: VARCHAR(36) NOT NULL
+- created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- UNIQUE(thread_id, user_uuid)
 
 ## users テーブル
 - id: INT AUTO_INCREMENT PRIMARY KEY
@@ -92,6 +114,13 @@ SPA (Single Page Application) 構成とする。
 - name: VARCHAR(50) NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 - updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+## transfer_codes テーブル
+- id: INT AUTO_INCREMENT PRIMARY KEY
+- user_uuid: VARCHAR(36) NOT NULL
+- code: VARCHAR(20) NOT NULL
+- expire_at: DATETIME NOT NULL
+- created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 
 ## migrates テーブル (マイグレーション管理)
 - id: INT AUTO_INCREMENT PRIMARY KEY
@@ -102,8 +131,12 @@ SPA (Single Page Application) 構成とする。
 - POST /api.php
   - リクエストヘッダー: `X-USER-ID` にUUIDを含める。
   - action=init_csrf: CSRFトークンを取得。
-  - action=get_posts: 投稿一覧を取得（usersテーブルと結合）。limit, offsetパラメータ対応。
-  - action=create_post: 新規投稿作成。body必須。
+  - action=get_threads: 参加しているスレッド一覧を取得。
+  - action=create_thread: 新規スレッド作成。title必須。
+  - action=get_posts: 指定スレッドの投稿一覧を取得。thread_id, limit, offsetパラメータ対応。
+  - action=create_post: 指定スレッドに投稿。thread_id, body必須。
   - action=delete_post: 投稿削除。id必須。
   - action=get_user: 現在のユーザー情報を取得。
+  - action=register_user: ユーザー登録（初回）。name必須。
   - action=update_user: ユーザー名を更新。name必須。
+  - action=check_transfer_code: 引き継ぎコードを検証し、有効ならUUIDを返す。code必須。

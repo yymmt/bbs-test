@@ -9,21 +9,47 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/ress@4.0.0/dist/ress.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1">
 </head>
 <body>
-    <header class="site-header">
+    <header id="site-header" class="site-header hidden">
         <button id="menu-btn" class="menu-btn"><i class="bi bi-list"></i></button>
         <h1>Simple BBS</h1>
         <nav id="nav-menu" class="nav-menu hidden">
             <ul>
-                <li><a href="#" data-target="home-view">Home</a></li>
+                <li><a href="#" data-target="thread-list-view">Threads</a></li>
                 <li><a href="#" data-target="settings-view">User Settings</a></li>
             </ul>
         </nav>
     </header>
 
     <main class="container">
+        <!-- Welcome View (Initial Setup) -->
+        <div id="welcome-view" class="hidden">
+            <section class="welcome-section">
+                <h2>Simple BBSへようこそ</h2>
+                <p>この端末で初めてのアクセスです。<br>初めて利用する方はユーザ名を設定してください。</p>
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="reg-username">User Name</label>
+                        <input type="text" id="reg-username" name="name" required maxlength="50" placeholder="Enter your name">
+                    </div>
+                    <button type="submit">OK</button>
+                </form>
+                
+                <hr class="divider">
+                
+                <p>他の端末でも利用している方は、引き継ぎコードがあれば設定を引き継ぐことができます。</p>
+                <form id="transfer-form">
+                    <div class="form-group">
+                        <label for="transfer-code">Transfer Code</label>
+                        <input type="text" id="transfer-code" name="code" placeholder="Enter transfer code">
+                    </div>
+                    <button type="submit">OK</button>
+                </form>
+            </section>
+        </div>
+
         <div id="settings-view" class="hidden">
             <section class="user-settings-section">
                 <h2>User Settings</h2>
@@ -37,20 +63,39 @@
             </section>
         </div>
 
-        <div id="home-view">
+        <!-- Thread List View -->
+        <div id="thread-list-view" class="hidden">
+            <section class="thread-form-section">
+                <h2>Create New Thread</h2>
+                <form id="thread-form">
+                    <div class="form-group">
+                        <input type="text" name="title" required maxlength="100" placeholder="Thread Title">
+                        <button type="submit">Create</button>
+                    </div>
+                </form>
+            </section>
+            <section class="thread-list-section">
+                <h2>Your Threads</h2>
+                <div id="threads-container"></div>
+            </section>
+        </div>
+
+        <!-- Thread Detail View (Posts) -->
+        <div id="thread-detail-view" class="hidden">
+            <div class="thread-header">
+                <button id="back-to-threads-btn" class="secondary-btn"><i class="bi bi-arrow-left"></i> Back</button>
+                <h2 id="current-thread-title">Thread Title</h2>
+            </div>
             <section class="post-form-section">
-                <h2>New Post</h2>
                 <form id="post-form">
                     <div class="form-group">
-                        <label for="body">Message</label>
-                        <textarea id="body" name="body" required></textarea>
+                        <textarea id="body" name="body" required placeholder="Type a message..."></textarea>
                     </div>
                     <button type="submit">Post</button>
                 </form>
             </section>
 
             <section class="post-list-section">
-                <h2>Posts</h2>
                 <div id="posts-container"></div>
                 <div class="pagination">
                     <button id="prev-btn" disabled>Previous</button>
@@ -59,6 +104,6 @@
             </section>
         </div>
     </main>
-    <script src="main.js"></script>
+    <script src="main.js?v=1"></script>
 </body>
 </html>

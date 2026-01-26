@@ -22,7 +22,7 @@ body {
     padding: 0 1rem;
 }
 
-.post-form-section, .post-list-section {
+.post-form-section, .post-list-section, .welcome-section, .thread-form-section, .thread-list-section {
     background: #fff;
     padding: 1.5rem;
     margin-bottom: 2rem;
@@ -46,6 +46,35 @@ body {
     border: 1px solid #ccc;
     border-radius: 4px;
     box-sizing: border-box;
+}
+
+/* Welcome View */
+.welcome-section {
+    text-align: center;
+}
+.divider {
+    margin: 2rem 0;
+    border: 0;
+    border-top: 1px solid #eee;
+}
+
+/* Thread List */
+.thread-item {
+    padding: 1rem;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.thread-item:hover {
+    background-color: #f9f9f9;
+}
+
+/* Thread Detail */
+.thread-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
 }
 
 .post-item {
@@ -123,6 +152,10 @@ button {
     border-radius: 4px;
     font-family: inherit;
     font-size: 1rem;
+}
+
+.secondary-btn {
+    background-color: #6c757d;
 }
 
 button:disabled {
