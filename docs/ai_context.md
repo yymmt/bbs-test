@@ -18,6 +18,7 @@ SPA (Single Page Application) 構成とする。
 - HTML/CSS/JavaScript (Vanilla JS)
 - 外部ライブラリ:
   - CSSリセット: ress.min.css
+  - Web Push (PHP): minishlink/web-push
   - フォント: Noto Sans JP (Google Fonts)
   - アイコン: Bootstrap Icons
 
@@ -30,6 +31,8 @@ SPA (Single Page Application) 構成とする。
   - index.html
   - main.js
   - style.css
+  - sw.js
+  - manifest.json
   - api.php
   - images/
   - admin/
@@ -78,6 +81,8 @@ SPA (Single Page Application) 構成とする。
   - スレッド一覧画面（ホーム）
   - ユーザー設定画面
 - ユーザー設定: 自身の名前変更、引き継ぎコード発行（将来対応）など。
+- 通知機能: スレッドに新着投稿があった際、参加している他のユーザーへWeb Push通知を送信する。
+- PWA対応: スマートフォンのホーム画面に追加可能にする（manifest.json, Service Worker）。
 - 投稿削除: 自身の投稿のみ削除可能とする（UUIDで判定）。パスワード入力は不要。
 
 # 管理ツール仕様 (詳細設計)
@@ -122,6 +127,15 @@ SPA (Single Page Application) 構成とする。
 - expire_at: DATETIME NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 
+## push_subscriptions テーブル
+- id: INT AUTO_INCREMENT PRIMARY KEY
+- user_uuid: VARCHAR(36) NOT NULL
+- endpoint: TEXT NOT NULL
+- public_key: VARCHAR(255) NOT NULL -- p256dh
+- auth_token: VARCHAR(255) NOT NULL -- auth
+- created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- UNIQUE(user_uuid, endpoint(255))
+
 ## migrates テーブル (マイグレーション管理)
 - id: INT AUTO_INCREMENT PRIMARY KEY
 - filename: VARCHAR(255) NOT NULL UNIQUE
@@ -140,3 +154,4 @@ SPA (Single Page Application) 構成とする。
   - action=register_user: ユーザー登録（初回）。name必須。
   - action=update_user: ユーザー名を更新。name必須。
   - action=check_transfer_code: 引き継ぎコードを検証し、有効ならUUIDを返す。code必須。
+  - action=register_subscription: Web Push通知の購読情報を登録。endpoint, keys[p256dh], keys[auth] 必須。

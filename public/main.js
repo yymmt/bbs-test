@@ -1,5 +1,6 @@
 const API_URL = 'api.php';
 let csrfToken = '';
+let vapidPublicKey = '';
 let currentOffset = 0;
 const LIMIT = 10;
 let currentThreadId = null;
@@ -10,10 +11,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function init() {
+  registerServiceWorker();
   const hasUuid = checkUuid();
   
   if (hasUuid) {
     await fetchCsrfToken();
+    subscribeUser(); // 通知購読を試みる
     showView('thread-list-view');
     loadUser();
     loadThreads();
@@ -38,6 +41,14 @@ async function init() {
   });
 }
 
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('Service Worker Registered', reg))
+      .catch(err => console.error('Service Worker Registration Failed', err));
+  }
+}
+
 function checkUuid() {
   return !!localStorage.getItem('user_uuid');
 }
@@ -59,6 +70,7 @@ async function fetchCsrfToken() {
     });
     const data = await response.json();
     csrfToken = data.token;
+    vapidPublicKey = data.vapidPublicKey;
   } catch (error) {
     console.error('Failed to init CSRF', error);
   }
@@ -104,6 +116,7 @@ async function handleRegister(e) {
     const data = await response.json();
     if (data.success) {
       localStorage.setItem('user_uuid', uuid);
+      subscribeUser(); // 登録後に通知購読
       showView('thread-list-view');
       loadUser();
       loadThreads();
@@ -130,6 +143,7 @@ async function handleTransfer(e) {
     const data = await response.json();
     if (data.success && data.user_uuid) {
       localStorage.setItem('user_uuid', data.user_uuid);
+      subscribeUser(); // 引き継ぎ後に通知購読
       showView('thread-list-view');
       loadUser();
       loadThreads();
@@ -386,4 +400,50 @@ function showView(viewId) {
   } else {
     document.getElementById('site-header').classList.remove('hidden');
   }
+}
+
+// Web Push Logic
+async function subscribeUser() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !vapidPublicKey) return;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+    });
+
+    await sendSubscriptionToBackEnd(subscription);
+  } catch (error) {
+    console.error('Failed to subscribe user', error);
+  }
+}
+
+async function sendSubscriptionToBackEnd(subscription) {
+  try {
+    await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
+      },
+      body: JSON.stringify({
+        action: 'register_subscription',
+        endpoint: subscription.endpoint,
+        keys: subscription.toJSON().keys
+      })
+    });
+  } catch (error) {
+    console.error('Failed to send subscription', error);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
 }

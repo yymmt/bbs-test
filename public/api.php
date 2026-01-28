@@ -1,5 +1,9 @@
 <?php
 
+require_once __DIR__ . '/../vendor/autoload.php';
+use Minishlink\WebPush\WebPush;
+use Minishlink\WebPush\Subscription;
+
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 
@@ -30,7 +34,10 @@ try {
         if (empty($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
-        echo json_encode(['token' => $_SESSION['csrf_token']]);
+        echo json_encode([
+            'token' => $_SESSION['csrf_token'],
+            'vapidPublicKey' => $config['web_push']['public_key'] ?? null
+        ]);
         exit;
     }
 
@@ -91,6 +98,53 @@ try {
             $input['body'],
             $user_uuid
         ]);
+
+        // 通知送信処理
+        if (isset($config['web_push'])) {
+            // スレッド参加者（自分以外）の購読情報を取得
+            $stmt = $pdo->prepare("
+                SELECT ps.endpoint, ps.public_key, ps.auth_token 
+                FROM thread_users tu
+                JOIN push_subscriptions ps ON tu.user_uuid = ps.user_uuid
+                WHERE tu.thread_id = ? AND tu.user_uuid != ?
+            ");
+            $stmt->execute([$thread_id, $user_uuid]);
+            $subscriptions = $stmt->fetchAll();
+
+            if ($subscriptions) {
+                $auth = [
+                    'VAPID' => [
+                        'subject' => $config['web_push']['subject'],
+                        'publicKey' => $config['web_push']['public_key'],
+                        'privateKey' => $config['web_push']['private_key'],
+                    ],
+                ];
+                $webPush = new WebPush($auth);
+
+                // スレッドタイトル取得
+                $stmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
+                $stmt->execute([$thread_id]);
+                $threadTitle = $stmt->fetchColumn();
+
+                $payload = json_encode([
+                    'title' => "New post in {$threadTitle}",
+                    'body' => mb_substr($input['body'], 0, 50) . (mb_strlen($input['body']) > 50 ? '...' : ''),
+                    'url' => "./?thread_id={$thread_id}",
+                    'icon' => 'images/icons/icon-192x192.png'
+                ]);
+
+                foreach ($subscriptions as $sub) {
+                    $subscription = Subscription::create([
+                        'endpoint' => $sub['endpoint'],
+                        'publicKey' => $sub['public_key'],
+                        'authToken' => $sub['auth_token'],
+                    ]);
+                    $webPush->queueNotification($subscription, $payload);
+                }
+                $webPush->flush();
+            }
+        }
+
         echo json_encode(['success' => true]);
 
     } elseif ($action === 'get_threads') {
@@ -179,6 +233,18 @@ try {
         } else {
             echo json_encode(['success' => false, 'error' => 'Invalid or expired code']);
         }
+
+    } elseif ($action === 'register_subscription') {
+        if (empty($input['endpoint']) || empty($input['keys']['p256dh']) || empty($input['keys']['auth']) || empty($user_uuid)) {
+            throw new Exception('Missing required fields');
+        }
+        $stmt = $pdo->prepare("
+            INSERT INTO push_subscriptions (user_uuid, endpoint, public_key, auth_token) 
+            VALUES (?, ?, ?, ?) 
+            ON DUPLICATE KEY UPDATE public_key = VALUES(public_key), auth_token = VALUES(auth_token)
+        ");
+        $stmt->execute([$user_uuid, $input['endpoint'], $input['keys']['p256dh'], $input['keys']['auth']]);
+        echo json_encode(['success' => true]);
 
     } else {
         http_response_code(400);
