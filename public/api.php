@@ -158,6 +158,13 @@ try {
                         error_log("Debug: Notification sent successfully to " . $result->getEndpoint());
                     } else {
                         error_log("Debug: Notification failed for " . $result->getEndpoint() . ". Reason: " . $result->getReason());
+
+                        // 購読が無効または期限切れの場合、DBから削除する
+                        if ($result->isSubscriptionExpired()) {
+                            $stmt = $pdo->prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
+                            $stmt->execute([$result->getEndpoint()]);
+                            error_log("Debug: Deleted expired subscription: " . $result->getEndpoint());
+                        }
                     }
                 }
             }

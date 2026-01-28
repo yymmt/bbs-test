@@ -17,9 +17,22 @@ async function init() {
   if (hasUuid) {
     await fetchCsrfToken();
     subscribeUser(); // 通知購読を試みる
+    loadUser(); // ユーザー情報は非同期でロード
+
+    const threads = await loadThreads(); // スレッド一覧取得を待つ
+
+    // URLパラメータのチェック (通知からの遷移など)
+    const urlParams = new URLSearchParams(window.location.search);
+    const threadId = urlParams.get('thread_id');
+
+    if (threadId) {
+      const targetThread = threads.find(t => t.id == threadId);
+      if (targetThread) {
+        openThread(targetThread.id, targetThread.title);
+        return;
+      }
+    }
     showView('thread-list-view');
-    loadUser();
-    loadThreads();
   } else {
     // UUIDがない場合はWelcome画面へ（CSRFトークンは必要）
     await fetchCsrfToken();
@@ -168,8 +181,10 @@ async function loadThreads() {
     });
     const data = await response.json();
     renderThreads(data.threads || []);
+    return data.threads || [];
   } catch (error) {
     console.error('Failed to load threads', error);
+    return [];
   }
 }
 
