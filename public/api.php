@@ -273,6 +273,110 @@ try {
         $stmt->execute([$user_uuid, $input['endpoint'], $input['keys']['p256dh'], $input['keys']['auth']]);
         echo json_encode(['success' => true]);
 
+    } elseif ($action === 'get_thread_settings') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        if (empty($thread_id)) throw new Exception('Thread ID required');
+
+        // スレッド情報
+        $stmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
+        $stmt->execute([$thread_id]);
+        $thread = $stmt->fetch();
+        if (!$thread) throw new Exception('Thread not found');
+
+        // 参加メンバー
+        $stmt = $pdo->prepare("SELECT u.user_uuid, u.name FROM thread_users tu JOIN users u ON tu.user_uuid = u.user_uuid WHERE tu.thread_id = ?");
+        $stmt->execute([$thread_id]);
+        $members = $stmt->fetchAll();
+
+        // 招待候補（自分が参加している他のスレッドにいるが、このスレッドにはいないユーザー）
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT u.user_uuid, u.name
+            FROM users u
+            JOIN thread_users tu_other ON u.user_uuid = tu_other.user_uuid
+            WHERE tu_other.thread_id IN (
+                SELECT thread_id FROM thread_users WHERE user_uuid = ?
+            )
+            AND u.user_uuid NOT IN (
+                SELECT user_uuid FROM thread_users WHERE thread_id = ?
+            )
+        ");
+        $stmt->execute([$user_uuid, $thread_id]);
+        $candidates = $stmt->fetchAll();
+
+        echo json_encode([
+            'success' => true,
+            'title' => $thread['title'],
+            'members' => $members,
+            'candidates' => $candidates
+        ]);
+
+    } elseif ($action === 'update_thread_title') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        if (empty($thread_id) || empty($input['title'])) throw new Exception('Invalid input');
+
+        // 権限チェック（参加者ならOK）
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('Permission denied');
+
+        $stmt = $pdo->prepare("UPDATE threads SET title = ? WHERE id = ?");
+        $stmt->execute([$input['title'], $thread_id]);
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'add_thread_member') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        $target_uuid = $input['target_user_uuid'] ?? '';
+        if (empty($thread_id) || empty($target_uuid)) throw new Exception('Invalid input');
+
+        // 権限チェック
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('Permission denied');
+
+        $stmt = $pdo->prepare("INSERT IGNORE INTO thread_users (thread_id, user_uuid) VALUES (?, ?)");
+        $stmt->execute([$thread_id, $target_uuid]);
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'remove_thread_member') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        $target_uuid = $input['target_user_uuid'] ?? '';
+        if (empty($thread_id) || empty($target_uuid)) throw new Exception('Invalid input');
+
+        // 権限チェック
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('Permission denied');
+
+        $stmt = $pdo->prepare("DELETE FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $target_uuid]);
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'generate_invite_token') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        if (empty($thread_id)) throw new Exception('Thread ID required');
+
+        $token = bin2hex(random_bytes(16));
+        $expires_at = date('Y-m-d H:i:s', strtotime('+24 hours'));
+
+        $stmt = $pdo->prepare("INSERT INTO thread_invites (thread_id, token, expires_at) VALUES (?, ?, ?)");
+        $stmt->execute([$thread_id, $token, $expires_at]);
+        echo json_encode(['success' => true, 'token' => $token]);
+
+    } elseif ($action === 'join_with_invite') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        $token = $input['token'] ?? '';
+        if (empty($thread_id) || empty($token)) throw new Exception('Invalid input');
+
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_invites WHERE thread_id = ? AND token = ? AND expires_at > NOW()");
+        $stmt->execute([$thread_id, $token]);
+        if ($stmt->fetch()) {
+            $stmt = $pdo->prepare("INSERT IGNORE INTO thread_users (thread_id, user_uuid) VALUES (?, ?)");
+            $stmt->execute([$thread_id, $user_uuid]);
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Invalid or expired token']);
+        }
+
     } else {
         http_response_code(400);
         echo json_encode(['error' => 'Invalid action']);

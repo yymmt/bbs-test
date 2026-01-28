@@ -1,3 +1,4 @@
+const APP_VERSION = 'v6';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -24,6 +25,12 @@ async function init() {
     // URLパラメータのチェック (通知からの遷移など)
     const urlParams = new URLSearchParams(window.location.search);
     const threadId = urlParams.get('thread_id');
+    const inviteToken = urlParams.get('invite_token');
+
+    if (inviteToken && threadId) {
+      await joinWithInvite(threadId, inviteToken);
+      // 参加処理後にスレッド一覧を再取得するか、そのまま開くか。joinWithInvite内でopenThreadを呼ぶのが良さそう。
+    }
 
     if (threadId) {
       const targetThread = threads.find(t => t.id == threadId);
@@ -44,6 +51,7 @@ async function init() {
   document.getElementById('thread-form').addEventListener('submit', handleCreateThread);
   document.getElementById('post-form').addEventListener('submit', handlePostSubmit);
   document.getElementById('user-form').addEventListener('submit', handleUserUpdate);
+  document.getElementById('thread-rename-form').addEventListener('submit', handleUpdateThreadTitle);
   document.getElementById('prev-btn').addEventListener('click', () => changePage(-1));
   document.getElementById('next-btn').addEventListener('click', () => changePage(1));
   document.getElementById('back-btn').addEventListener('click', () => showView('thread-list-view'));
@@ -192,13 +200,21 @@ function renderThreads(threads) {
   const container = document.getElementById('threads-container');
   container.innerHTML = '';
 
-  threads.forEach(thread => {
-    const div = document.createElement('div');
-    div.className = 'thread-item';
-    div.textContent = thread.title;
-    div.onclick = () => openThread(thread.id, thread.title);
-    container.appendChild(div);
-  });
+  if (threads.length === 0) {
+    const p = document.createElement('p');
+    p.textContent = 'No threads found. Create a new one or ask for an invitation.';
+    p.style.color = '#666';
+    p.style.textAlign = 'center';
+    container.appendChild(p);
+  } else {
+    threads.forEach(thread => {
+      const div = document.createElement('div');
+      div.className = 'thread-item';
+      div.textContent = thread.title;
+      div.onclick = () => openThread(thread.id, thread.title);
+      container.appendChild(div);
+    });
+  }
 }
 
 function openThread(id, title) {
@@ -411,6 +427,7 @@ function showView(viewId) {
   const header = document.getElementById('site-header');
   const pageTitle = document.getElementById('page-title');
   const backBtn = document.getElementById('back-btn');
+  const navThreadSettings = document.getElementById('nav-thread-settings');
 
   // Header visibility
   if (viewId === 'welcome-view') {
@@ -420,10 +437,17 @@ function showView(viewId) {
   }
 
   // Back button visibility
-  if (viewId === 'thread-detail-view') {
+  if (viewId === 'thread-detail-view' || viewId === 'thread-settings-view') {
     backBtn.classList.remove('hidden');
   } else {
     backBtn.classList.add('hidden');
+  }
+
+  // Thread Settings Menu visibility
+  if (viewId === 'thread-detail-view' || viewId === 'thread-settings-view') {
+    navThreadSettings.classList.remove('hidden');
+  } else {
+    navThreadSettings.classList.add('hidden');
   }
 
   // Page title content
@@ -433,10 +457,209 @@ function showView(viewId) {
       break;
     case 'settings-view':
       pageTitle.textContent = 'User Settings';
+      document.getElementById('app-version').textContent = `App Version: ${APP_VERSION}`;
       break;
     case 'thread-detail-view':
       pageTitle.textContent = currentThreadTitle;
       break;
+    case 'thread-settings-view':
+      pageTitle.textContent = 'Thread Settings';
+      loadThreadSettings();
+      break;
+  }
+}
+
+async function loadThreadSettings() {
+  if (!currentThreadId) return;
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
+      },
+      body: JSON.stringify({ action: 'get_thread_settings', thread_id: currentThreadId })
+    });
+    const data = await response.json();
+    if (data.success) {
+      renderThreadSettings(data);
+    }
+  } catch (error) {
+    console.error('Failed to load thread settings', error);
+  }
+}
+
+function renderThreadSettings(data) {
+  document.getElementById('setting-thread-title').value = data.title;
+
+  // Members
+  const memberList = document.getElementById('member-list');
+  memberList.innerHTML = '';
+  data.members.forEach(member => {
+    const div = document.createElement('div');
+    div.className = 'member-item';
+    div.innerHTML = `<span>${member.name}</span>`;
+    
+    // 自分自身は削除できないようにする
+    if (member.user_uuid !== localStorage.getItem('user_uuid')) {
+      const btn = document.createElement('button');
+      btn.className = 'secondary-btn';
+      btn.innerHTML = '<i class="bi bi-dash-circle"></i>';
+      btn.onclick = () => handleRemoveMember(member.user_uuid);
+      div.appendChild(btn);
+    }
+    memberList.appendChild(div);
+  });
+
+  // Candidates
+  const candidateList = document.getElementById('candidate-list');
+  candidateList.innerHTML = '';
+  if (data.candidates.length === 0) {
+    candidateList.textContent = 'No candidates found.';
+  } else {
+    data.candidates.forEach(user => {
+      const div = document.createElement('div');
+      div.className = 'member-item';
+      div.innerHTML = `<span>${user.name}</span>`;
+      
+      const btn = document.createElement('button');
+      btn.innerHTML = '<i class="bi bi-plus-circle"></i>';
+      btn.onclick = () => handleAddMember(user.user_uuid);
+      div.appendChild(btn);
+      candidateList.appendChild(div);
+    });
+  }
+
+  // QR Code
+  generateQrCode();
+}
+
+async function handleUpdateThreadTitle(e) {
+  e.preventDefault();
+  const title = document.getElementById('setting-thread-title').value;
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
+      },
+      body: JSON.stringify({ action: 'update_thread_title', thread_id: currentThreadId, title: title })
+    });
+    const data = await response.json();
+    if (data.success) {
+      currentThreadTitle = title;
+      alert('Thread title updated.');
+    } else {
+      alert('Error: ' + data.error);
+    }
+  } catch (error) {
+    console.error('Update title failed', error);
+  }
+}
+
+async function handleAddMember(targetUuid) {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
+      },
+      body: JSON.stringify({ action: 'add_thread_member', thread_id: currentThreadId, target_user_uuid: targetUuid })
+    });
+    const data = await response.json();
+    if (data.success) {
+      loadThreadSettings();
+    } else {
+      alert('Error: ' + data.error);
+    }
+  } catch (error) {
+    console.error('Add member failed', error);
+  }
+}
+
+async function handleRemoveMember(targetUuid) {
+  if (!confirm('Remove this member?')) return;
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
+      },
+      body: JSON.stringify({ action: 'remove_thread_member', thread_id: currentThreadId, target_user_uuid: targetUuid })
+    });
+    const data = await response.json();
+    if (data.success) {
+      loadThreadSettings();
+    } else {
+      alert('Error: ' + data.error);
+    }
+  } catch (error) {
+    console.error('Remove member failed', error);
+  }
+}
+
+async function generateQrCode() {
+  const container = document.getElementById('qr-code-container');
+  container.innerHTML = '';
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
+      },
+      body: JSON.stringify({ action: 'generate_invite_token', thread_id: currentThreadId })
+    });
+    const data = await response.json();
+    if (data.success && data.token) {
+      const inviteUrl = `${window.location.origin}${window.location.pathname}?thread_id=${currentThreadId}&invite_token=${data.token}`;
+      new QRCode(container, {
+        text: inviteUrl,
+        width: 128,
+        height: 128
+      });
+    }
+  } catch (error) {
+    console.error('QR generation failed', error);
+  }
+}
+
+async function joinWithInvite(threadId, token) {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken,
+        'X-USER-ID': localStorage.getItem('user_uuid')
+      },
+      body: JSON.stringify({ action: 'join_with_invite', thread_id: threadId, token: token })
+    });
+    const data = await response.json();
+    if (data.success) {
+      alert('Joined thread successfully!');
+      // スレッド一覧をリロードして、該当スレッドを開く
+      const threads = await loadThreads();
+      const targetThread = threads.find(t => t.id == threadId);
+      if (targetThread) {
+        openThread(targetThread.id, targetThread.title);
+      }
+    } else {
+      alert('Failed to join: ' + (data.error || 'Invalid or expired token'));
+    }
+  } catch (error) {
+    console.error('Join failed', error);
   }
 }
 

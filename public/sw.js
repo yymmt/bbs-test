@@ -1,12 +1,13 @@
-const CACHE_NAME = 'bbs-cache-v4';
+const CACHE_NAME = 'bbs-cache-v6';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=5',
-  './main.js?v=5',
+  './style.css?v=6',
+  './main.js?v=6',
   'https://unpkg.com/ress@4.0.0/dist/ress.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css',
-  'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap',
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
 ];
 
 // Install event: Cache assets

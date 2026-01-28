@@ -77,17 +77,29 @@ SPA (Single Page Application) 構成とする。
   - ユーザー名登録: 名前を入力して利用開始する。
   - 引き継ぎ: 引き継ぎコードを入力し、既存のUUIDを設定する。
 - スレッド一覧（ホーム）: 自身が参加しているスレッドを最終更新日時の降順で表示する。
+  - スレッドが存在しない場合は、その旨を伝えるメッセージを表示する。
   - スレッド新規作成: スレッド名を入力して作成する（作成者は自動的に参加）。
 - スレッド詳細（投稿一覧）: 選択したスレッドの投稿一覧を表示する。ページネーション対応。
   - ヘッダーのページタイトルにスレッド名を表示する。
-  - URLパラメータ `thread_id` がある場合、該当スレッドを直接開く。
+  - URLパラメータ `thread_id` がある場合、該当スレッドを直接開く。招待トークン `invite_token` がある場合は、スレッドに参加処理を行った後に開く。
   - 新規投稿: スレッド内にメッセージを投稿する。
 - 画面構成: SPA構成。ヘッダーには、戻るボタン（左上）、ページタイトル（中央）、ハンバーガーメニュー（右上）を配置。
   - 戻るボタンはスレッド詳細画面でのみ表示する。
-  - ハンバーガーメニューで以下の画面を切り替える。
+  - ハンバーガーメニューで以下の画面を切り替える。スレッド詳細表示時には「Thread Settings」も表示する。
     - スレッド一覧画面（ホーム）
     - ユーザー設定画面
-- ユーザー設定: 自身の名前変更、引き継ぎコード発行（将来対応）など。ヘッダーのページタイトルに「User Settings」と表示する。
+    - スレッド設定画面
+- ユーザー設定: 自身の名前変更、引き継ぎコード発行（将来対応）など。ヘッダーのページタイトルに「User Settings」と表示する。アプリのバージョン情報を表示する。
+- スレッド設定 (Thread Settings):
+  - スレッド名の編集機能。
+  - 参加メンバーの管理機能:
+    - 参加者一覧を表示し、メンバーを除外できる（マイナスボタン）。
+    - 招待可能なユーザー一覧（※）を表示し、メンバーを追加できる（プラスボタン）。
+    - ※招待可能なユーザー: 自分が参加しているいずれかのスレッドに属しているが、現在のスレッドには未参加のユーザー。
+  - 招待用QRコードの表示機能:
+    - 一時的な招待トークンを含むURLを生成し、QRコードとして表示する。
+    - 他のユーザーがQRコードをスキャンしてURLにアクセスすると、スレッドへの参加が完了する。
+    - クライアントサイドでのQRコード生成には、外部ライブラリ（例: qrcode.js）の導入を検討する。
 - 通知機能: スレッドに新着投稿があった際、参加している他のユーザーへWeb Push通知を送信する。
   - 通知クリック時、既存のウィンドウ（PWA含む）があればフォーカスして該当スレッドへ遷移し、なければ新規ウィンドウを開く。
 - PWA対応: スマートフォンのホーム画面に追加可能にする（manifest.json, Service Worker）。
@@ -120,6 +132,14 @@ SPA (Single Page Application) 構成とする。
 - user_uuid: VARCHAR(36) NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 - UNIQUE(thread_id, user_uuid)
+
+## thread_invites テーブル
+- id: INT AUTO_INCREMENT PRIMARY KEY
+- thread_id: INT NOT NULL
+- token: VARCHAR(32) NOT NULL UNIQUE
+- expires_at: DATETIME NOT NULL
+- created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- FOREIGN KEY (thread_id) REFERENCES threads(id) ON DELETE CASCADE
 
 ## users テーブル
 - id: INT AUTO_INCREMENT PRIMARY KEY
@@ -156,10 +176,16 @@ SPA (Single Page Application) 構成とする。
   - action=get_threads: 参加しているスレッド一覧を取得。
   - action=create_thread: 新規スレッド作成。title必須。
   - action=get_posts: 指定スレッドの投稿一覧を取得。thread_id, limit, offsetパラメータ対応。
+  - action=get_thread_settings: `thread_id`必須。スレッド名、参加メンバー、招待可能メンバーの一覧を取得。
   - action=create_post: 指定スレッドに投稿。thread_id, body必須。
   - action=delete_post: 投稿削除。id必須。
   - action=get_user: 現在のユーザー情報を取得。
   - action=register_user: ユーザー登録（初回）。name必須。
   - action=update_user: ユーザー名を更新。name必須。
+  - action=update_thread_title: スレッド名を更新。`thread_id`, `title`必須。
+  - action=add_thread_member: メンバーをスレッドに追加。`thread_id`, `target_user_uuid`必須。
+  - action=remove_thread_member: メンバーをスレッドから削除。`thread_id`, `target_user_uuid`必須。
+  - action=generate_invite_token: `thread_id`必須。招待用トークンを生成して返す。
+  - action=join_with_invite: `thread_id`, `token`必須。招待トークンを検証し、スレッドに参加する。
   - action=check_transfer_code: 引き継ぎコードを検証し、有効ならUUIDを返す。code必須。
   - action=register_subscription: Web Push通知の購読情報を登録。endpoint, keys[p256dh], keys[auth] 必須。

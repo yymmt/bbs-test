@@ -9,9 +9,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/ress@4.0.0/dist/ress.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="style.css?v=5">
-    <link rel="manifest" href="manifest.json?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="manifest" href="manifest.json?v=6">
     <link rel="apple-touch-icon" href="images/icons/icon.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
     <header id="site-header" class="site-header hidden">
@@ -22,6 +23,7 @@
             <ul>
                 <li><a href="#" data-target="thread-list-view">Threads</a></li>
                 <li><a href="#" data-target="settings-view">User Settings</a></li>
+                <li id="nav-thread-settings" class="hidden"><a href="#" data-target="thread-settings-view">Thread Settings</a></li>
             </ul>
         </nav>
     </header>
@@ -62,6 +64,7 @@
                         <button type="submit">Save Name</button>
                     </div>
                 </form>
+                <div id="app-version" class="app-version"></div>
             </section>
         </div>
 
@@ -79,6 +82,29 @@
             <section class="thread-list-section">
                 <h2>Your Threads</h2>
                 <div id="threads-container"></div>
+            </section>
+        </div>
+
+        <!-- Thread Settings View -->
+        <div id="thread-settings-view" class="hidden">
+            <section class="thread-settings-section">
+                <h2>Thread Settings</h2>
+                <form id="thread-rename-form">
+                    <div class="form-group">
+                        <label>Thread Name</label>
+                        <input type="text" id="setting-thread-title" name="title" required maxlength="100">
+                        <button type="submit">Rename</button>
+                    </div>
+                </form>
+                
+                <h3>Members</h3>
+                <div id="member-list" class="member-list"></div>
+
+                <h3>Add Members</h3>
+                <div id="candidate-list" class="member-list"></div>
+
+                <h3>Invite via QR Code</h3>
+                <div id="qr-code-container" class="qr-code-container"></div>
             </section>
         </div>
 
@@ -102,6 +128,6 @@
             </section>
         </div>
     </main>
-    <script src="main.js?v=5"></script>
+    <script src="main.js?v=6"></script>
 </body>
 </html>

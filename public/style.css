@@ -31,7 +31,7 @@ body {
     padding: 0 1rem;
 }
 
-.post-form-section, .post-list-section, .welcome-section, .thread-form-section, .thread-list-section {
+.post-form-section, .post-list-section, .welcome-section, .thread-form-section, .thread-list-section, .thread-settings-section {
     background: #fff;
     padding: 1.5rem;
     margin-bottom: 2rem;
@@ -125,7 +125,7 @@ body {
 .nav-menu {
     position: absolute;
     top: 100%;
-    left: 0;
+    right: 0;
     background-color: #444;
     width: 200px;
     z-index: 1000;
@@ -173,4 +173,31 @@ button {
 button:disabled {
     background-color: #ccc;
     cursor: not-allowed;
+}
+
+.app-version {
+    margin-top: 2rem;
+    text-align: center;
+    color: #999;
+    font-size: 0.8rem;
+}
+
+/* Thread Settings */
+.member-list {
+    margin-bottom: 2rem;
+}
+
+.member-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.qr-code-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+    padding: 1rem;
 }
