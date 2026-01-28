@@ -101,6 +101,8 @@ try {
 
         // 通知送信処理
         if (isset($config['web_push'])) {
+            error_log("Debug: Web Push config exists. Starting notification process.");
+
             // スレッド参加者（自分以外）の購読情報を取得
             $stmt = $pdo->prepare("
                 SELECT ps.endpoint, ps.public_key, ps.auth_token 
@@ -110,6 +112,11 @@ try {
             ");
             $stmt->execute([$thread_id, $user_uuid]);
             $subscriptions = $stmt->fetchAll();
+
+            error_log("Debug: Found " . count($subscriptions) . " subscriptions for thread_id: $thread_id, excluding user: $user_uuid");
+            if (!empty($subscriptions)) {
+                error_log("Debug: Subscriptions data: " . print_r($subscriptions, true));
+            }
 
             if ($subscriptions) {
                 $auth = [
@@ -133,6 +140,8 @@ try {
                     'icon' => 'images/icons/icon.png'
                 ]);
 
+                error_log("Debug: Payload: " . $payload);
+
                 foreach ($subscriptions as $sub) {
                     $subscription = Subscription::create([
                         'endpoint' => $sub['endpoint'],
@@ -141,8 +150,19 @@ try {
                     ]);
                     $webPush->queueNotification($subscription, $payload);
                 }
-                $webPush->flush();
+                
+                $report = $webPush->flush();
+
+                foreach ($report as $result) {
+                    if ($result->isSuccess()) {
+                        error_log("Debug: Notification sent successfully to " . $result->getEndpoint());
+                    } else {
+                        error_log("Debug: Notification failed for " . $result->getEndpoint() . ". Reason: " . $result->getReason());
+                    }
+                }
             }
+        } else {
+            error_log("Debug: Web Push config is NOT set.");
         }
 
         echo json_encode(['success' => true]);
