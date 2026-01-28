@@ -9,14 +9,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/ress@4.0.0/dist/ress.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="style.css?v=1">
+    <link rel="stylesheet" href="style.css?v=3">
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="images/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" href="images/icons/icon.png">
 </head>
 <body>
     <header id="site-header" class="site-header hidden">
+        <button id="back-btn" class="back-btn hidden"><i class="bi bi-chevron-left"></i></button>
+        <h1 id="page-title" class="page-title"></h1>
         <button id="menu-btn" class="menu-btn"><i class="bi bi-list"></i></button>
-        <h1>Simple BBS</h1>
         <nav id="nav-menu" class="nav-menu hidden">
             <ul>
                 <li><a href="#" data-target="thread-list-view">Threads</a></li>
@@ -54,7 +55,6 @@
 
         <div id="settings-view" class="hidden">
             <section class="user-settings-section">
-                <h2>User Settings</h2>
                 <form id="user-form">
                     <div class="form-group">
                         <label for="username">Your Name</label>
@@ -84,10 +84,6 @@
 
         <!-- Thread Detail View (Posts) -->
         <div id="thread-detail-view" class="hidden">
-            <div class="thread-header">
-                <button id="back-to-threads-btn" class="secondary-btn"><i class="bi bi-arrow-left"></i> Back</button>
-                <h2 id="current-thread-title">Thread Title</h2>
-            </div>
             <section class="post-form-section">
                 <form id="post-form">
                     <div class="form-group">
@@ -106,6 +102,6 @@
             </section>
         </div>
     </main>
-    <script src="main.js?v=1"></script>
+    <script src="main.js?v=3"></script>
 </body>
 </html>

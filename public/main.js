@@ -33,7 +33,7 @@ async function init() {
   document.getElementById('user-form').addEventListener('submit', handleUserUpdate);
   document.getElementById('prev-btn').addEventListener('click', () => changePage(-1));
   document.getElementById('next-btn').addEventListener('click', () => changePage(1));
-  document.getElementById('back-to-threads-btn').addEventListener('click', () => showView('thread-list-view'));
+  document.getElementById('back-btn').addEventListener('click', () => showView('thread-list-view'));
 
   document.getElementById('menu-btn').addEventListener('click', toggleMenu);
   document.querySelectorAll('.nav-menu a').forEach(link => {
@@ -189,7 +189,6 @@ function renderThreads(threads) {
 function openThread(id, title) {
   currentThreadId = id;
   currentThreadTitle = title;
-  document.getElementById('current-thread-title').textContent = title;
   currentOffset = 0;
   showView('thread-detail-view');
   loadPosts();
@@ -393,12 +392,36 @@ function showView(viewId) {
     document.getElementById(id).classList.add('hidden');
   });
   document.getElementById(viewId).classList.remove('hidden');
+  
+  const header = document.getElementById('site-header');
+  const pageTitle = document.getElementById('page-title');
+  const backBtn = document.getElementById('back-btn');
 
-  // ヘッダーの表示制御（Welcome画面では非表示）
+  // Header visibility
   if (viewId === 'welcome-view') {
-    document.getElementById('site-header').classList.add('hidden');
+    header.classList.add('hidden');
   } else {
-    document.getElementById('site-header').classList.remove('hidden');
+    header.classList.remove('hidden');
+  }
+
+  // Back button visibility
+  if (viewId === 'thread-detail-view') {
+    backBtn.classList.remove('hidden');
+  } else {
+    backBtn.classList.add('hidden');
+  }
+
+  // Page title content
+  switch (viewId) {
+    case 'thread-list-view':
+      pageTitle.textContent = 'Simple BBS';
+      break;
+    case 'settings-view':
+      pageTitle.textContent = 'User Settings';
+      break;
+    case 'thread-detail-view':
+      pageTitle.textContent = currentThreadTitle;
+      break;
   }
 }
 

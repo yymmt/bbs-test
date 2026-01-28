@@ -130,7 +130,7 @@ try {
                     'title' => "New post in {$threadTitle}",
                     'body' => mb_substr($input['body'], 0, 50) . (mb_strlen($input['body']) > 50 ? '...' : ''),
                     'url' => "./?thread_id={$thread_id}",
-                    'icon' => 'images/icons/icon-192x192.png'
+                    'icon' => 'images/icons/icon.png'
                 ]);
 
                 foreach ($subscriptions as $sub) {
