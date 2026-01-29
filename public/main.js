@@ -6,6 +6,7 @@ let currentOffset = 0;
 const LIMIT = 10;
 let currentThreadId = null;
 let currentThreadTitle = '';
+let threads = [];
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
@@ -20,26 +21,11 @@ async function init() {
     subscribeUser(); // 通知購読を試みる
     loadUser(); // ユーザー情報は非同期でロード
 
-    const threads = await loadThreads(); // スレッド一覧取得を待つ
+    await loadThreads(); // スレッド一覧取得を待つ
 
-    // URLパラメータのチェック (通知からの遷移など)
-    const urlParams = new URLSearchParams(window.location.search);
-    const threadId = urlParams.get('thread_id');
-    const inviteToken = urlParams.get('invite_token');
-
-    if (inviteToken && threadId) {
-      await joinWithInvite(threadId, inviteToken);
-      // 参加処理後にスレッド一覧を再取得するか、そのまま開くか。joinWithInvite内でopenThreadを呼ぶのが良さそう。
-    }
-
-    if (threadId) {
-      const targetThread = threads.find(t => t.id == threadId);
-      if (targetThread) {
-        openThread(targetThread.id, targetThread.title);
-        return;
-      }
-    }
-    showView('thread-list-view');
+    // ルーティング設定
+    window.addEventListener('popstate', handleRouting);
+    await handleRouting(); // 初期表示時のURLチェック
   } else {
     // UUIDがない場合はWelcome画面へ（CSRFトークンは必要）
     await fetchCsrfToken();
@@ -54,12 +40,57 @@ async function init() {
   document.getElementById('thread-rename-form').addEventListener('submit', handleUpdateThreadTitle);
   document.getElementById('prev-btn').addEventListener('click', () => changePage(-1));
   document.getElementById('next-btn').addEventListener('click', () => changePage(1));
-  document.getElementById('back-btn').addEventListener('click', () => showView('thread-list-view'));
+  document.getElementById('back-btn').addEventListener('click', () => {
+    // 一覧に戻る（URLパラメータを削除）
+    const url = new URL(window.location);
+    url.searchParams.delete('thread_id');
+    url.searchParams.delete('invite_token');
+    history.pushState({}, '', url);
+    handleRouting();
+  });
 
   document.getElementById('menu-btn').addEventListener('click', toggleMenu);
   document.querySelectorAll('.nav-menu a').forEach(link => {
     link.addEventListener('click', handleNavClick);
   });
+}
+
+async function handleRouting() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const threadId = urlParams.get('thread_id');
+  const inviteToken = urlParams.get('invite_token');
+
+  if (inviteToken && threadId) {
+    await joinWithInvite(threadId, inviteToken);
+    // 招待トークン処理後はURLからトークンを削除（リロード時の再実行防止）
+    const url = new URL(window.location);
+    url.searchParams.delete('invite_token');
+    history.replaceState({}, '', url);
+  }
+
+  if (threadId) {
+    // スレッド一覧が未ロードの場合はロードする（通常はinitでロード済み）
+    if (threads.length === 0) await loadThreads();
+
+    const targetThread = threads.find(t => t.id == threadId);
+    if (targetThread) {
+      openThread(targetThread.id, targetThread.title);
+      return;
+    }
+  }
+
+  // thread_idがない、または見つからない場合は一覧表示
+  showView('thread-list-view');
+  currentThreadId = null;
+}
+
+function navigateToThread(id) {
+  const url = new URL(window.location);
+  url.searchParams.set('thread_id', id);
+  // invite_tokenが残っていたら消す
+  url.searchParams.delete('invite_token');
+  history.pushState({}, '', url);
+  handleRouting();
 }
 
 function registerServiceWorker() {
@@ -138,9 +169,9 @@ async function handleRegister(e) {
     if (data.success) {
       localStorage.setItem('user_uuid', uuid);
       subscribeUser(); // 登録後に通知購読
-      showView('thread-list-view');
       loadUser();
-      loadThreads();
+      await loadThreads();
+      handleRouting(); // URLパラメータがあればそれに従う
     } else {
       alert('Registration failed: ' + (data.error || 'Unknown error'));
     }
@@ -165,9 +196,9 @@ async function handleTransfer(e) {
     if (data.success && data.user_uuid) {
       localStorage.setItem('user_uuid', data.user_uuid);
       subscribeUser(); // 引き継ぎ後に通知購読
-      showView('thread-list-view');
       loadUser();
-      loadThreads();
+      await loadThreads();
+      handleRouting();
     } else {
       alert('Transfer failed: ' + (data.error || 'Invalid code'));
     }
@@ -188,8 +219,9 @@ async function loadThreads() {
       body: JSON.stringify({ action: 'get_threads' })
     });
     const data = await response.json();
-    renderThreads(data.threads || []);
-    return data.threads || [];
+    threads = data.threads || []; // グローバル変数を更新
+    renderThreads(threads);
+    return threads;
   } catch (error) {
     console.error('Failed to load threads', error);
     return [];
@@ -211,7 +243,7 @@ function renderThreads(threads) {
       const div = document.createElement('div');
       div.className = 'thread-item';
       div.textContent = thread.title;
-      div.onclick = () => openThread(thread.id, thread.title);
+      div.onclick = () => navigateToThread(thread.id);
       container.appendChild(div);
     });
   }
@@ -413,7 +445,16 @@ function toggleMenu() {
 function handleNavClick(e) {
   e.preventDefault();
   const targetId = e.target.dataset.target;
-  showView(targetId);
+  
+  if (targetId === 'thread-list-view') {
+    // 一覧に戻る場合はURLパラメータをクリア
+    const url = new URL(window.location);
+    url.searchParams.delete('thread_id');
+    history.pushState({}, '', url);
+    handleRouting();
+  } else {
+    showView(targetId);
+  }
   toggleMenu(); // Close menu
 }
 
@@ -649,12 +690,7 @@ async function joinWithInvite(threadId, token) {
     const data = await response.json();
     if (data.success) {
       alert('Joined thread successfully!');
-      // スレッド一覧をリロードして、該当スレッドを開く
-      const threads = await loadThreads();
-      const targetThread = threads.find(t => t.id == threadId);
-      if (targetThread) {
-        openThread(targetThread.id, targetThread.title);
-      }
+      await loadThreads(); // 一覧を更新（画面遷移はhandleRoutingに任せる）
     } else {
       alert('Failed to join: ' + (data.error || 'Invalid or expired token'));
     }

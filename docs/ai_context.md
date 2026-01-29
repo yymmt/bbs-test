@@ -4,9 +4,10 @@ Gemini Code Assist 向けの指示テキストです。
   1. まず ai_context.md のみを修正し、他ファイルは変更しないでください。
   2. ai_context.md の粒度より細かい仕様は、ai_context.md には書かずコンテキストとして記憶してください。
   3. 修正が必要なファイル一覧と、それらがコンテキストに含まれているか（編集可能か）を報告してください。ファイルの新規作成が必要な場合はファイル名を提案してください。
-- コード修正の指示時:
+- 仕様変更のコード反映の指示時:
   - ai_context.md の内容に従い、対象ファイルを修正してください。
   - 後述の「キャッシュ対策」に従って、index.htmlとsw.jsの v も必要に応じてインクリメントしてください。
+  - リファクタリングは積極的に行わないが、リファクタリングが強く推奨される場合は教えて下さい。(コードをすぐに修正するのではなく。)
 
 # プロジェクト概要
 さくらのレンタルサーバ上で動作する、スレッド形式の掲示板システムの構築。
@@ -71,6 +72,7 @@ SPA (Single Page Application) 構成とする。
 - キャッシュ対策: `index.html` で読み込むCSS/JSファイルにはクエリパラメータ（例: `?v=1`）を付与し、変更時に値を更新することでブラウザキャッシュを回避する。
   - `manifest.json` にも同様にクエリパラメータを付与する。
   - `sw.js` 内の `CACHE_NAME` や `ASSETS` 内のパス（クエリパラメータ含む）も同様に更新し、PWAのキャッシュも更新されるようにする。
+- SPAルーティング: History API (`pushState`, `popState`) を使用し、URLクエリパラメータ (`?thread_id=`) に基づいて画面遷移を制御する（Client-side Routing）。
 
 # 機能要件 (要件定義)
 - 初期設定 (Welcome画面): 初回アクセス時（UUID未保持）に表示。
@@ -114,8 +116,8 @@ SPA (Single Page Application) 構成とする。
 # データベース設計 (詳細設計)
 ## posts テーブル
 - id: INT AUTO_INCREMENT PRIMARY KEY
-- thread_id: INT NOT NULL -- スレッドID
-- user_uuid: VARCHAR(36) NOT NULL -- 投稿者のUUID
+- thread_id: INT NOT NULL
+- user_uuid: VARCHAR(36) NOT NULL
 - body: TEXT NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 - FOREIGN KEY (thread_id) REFERENCES threads(id)
