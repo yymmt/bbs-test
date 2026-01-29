@@ -19,13 +19,11 @@ $is_pull_needed = ($local_hash !== $remote_hash);
 chdir($current_dir);
 
 // マイグレーションが必要か判定
-require_once __DIR__ . '/../../config.php';
-$config = require __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../database.php';
 $is_migrate_needed = false;
 
 try {
-    $dsn = "mysql:host={$config['db']['host']};dbname={$config['db']['dbname']};charset={$config['db']['charset']}";
-    $pdo = new PDO($dsn, $config['db']['user'], $config['db']['password']);
+    $pdo = getPDO();
     
     // テーブルが存在しない、または未実行のファイルがあるか確認
     $stmt = $pdo->query("SHOW TABLES LIKE 'migrates'");

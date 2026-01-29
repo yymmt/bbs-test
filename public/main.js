@@ -41,7 +41,6 @@ async function init() {
   document.getElementById('prev-btn').addEventListener('click', () => changePage(-1));
   document.getElementById('next-btn').addEventListener('click', () => changePage(1));
   document.getElementById('back-btn').addEventListener('click', () => {
-    // 一覧に戻る（URLパラメータを削除）
     const url = new URL(window.location);
     url.searchParams.delete('thread_id');
     url.searchParams.delete('invite_token');
@@ -93,6 +92,26 @@ function navigateToThread(id) {
   handleRouting();
 }
 
+/**
+ * APIを呼び出す共通関数
+ * @param {string} action - APIアクション名
+ * @param {object} body - リクエストボディに追加するデータ
+ * @returns {Promise<any>} - APIからのレスポンス(JSON)
+ */
+async function apiCall(action, body = {}) {
+  const payload = { action, ...body };
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': csrfToken,
+      'X-USER-ID': localStorage.getItem('user_uuid')
+    },
+    body: JSON.stringify(payload)
+  });
+  return response.json();
+}
+
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js')
@@ -115,12 +134,8 @@ function generateUuid() {
 
 async function fetchCsrfToken() {
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-USER-ID': localStorage.getItem('user_uuid') },
-      body: JSON.stringify({ action: 'init_csrf' }) // UUIDがなくてもCSRFトークンは取得可能にする
-    });
-    const data = await response.json();
+    // apiCallを使わず直接fetch（CSRFトークン取得前なので）
+    const data = await (await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'init_csrf' }) })).json();
     csrfToken = data.token;
     vapidPublicKey = data.vapidPublicKey;
   } catch (error) {
@@ -130,16 +145,7 @@ async function fetchCsrfToken() {
 
 async function loadUser() {
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'get_user' })
-    });
-    const data = await response.json();
+    const data = await apiCall('get_user');
     if (data.name) {
       document.getElementById('username').value = data.name;
     }
@@ -156,16 +162,7 @@ async function handleRegister(e) {
   const uuid = generateUuid();
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': uuid
-      },
-      body: JSON.stringify({ action: 'register_user', name: name })
-    });
-    const data = await response.json();
+    const data = await apiCall('register_user', { name });
     if (data.success) {
       localStorage.setItem('user_uuid', uuid);
       subscribeUser(); // 登録後に通知購読
@@ -187,12 +184,7 @@ async function handleTransfer(e) {
   const code = formData.get('code');
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
-      body: JSON.stringify({ action: 'check_transfer_code', code: code })
-    });
-    const data = await response.json();
+    const data = await apiCall('check_transfer_code', { code });
     if (data.success && data.user_uuid) {
       localStorage.setItem('user_uuid', data.user_uuid);
       subscribeUser(); // 引き継ぎ後に通知購読
@@ -209,16 +201,7 @@ async function handleTransfer(e) {
 
 async function loadThreads() {
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'get_threads' })
-    });
-    const data = await response.json();
+    const data = await apiCall('get_threads');
     threads = data.threads || []; // グローバル変数を更新
     renderThreads(threads);
     return threads;
@@ -261,21 +244,11 @@ async function loadPosts() {
   if (!currentThreadId) return;
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({
-        action: 'get_posts',
-        thread_id: currentThreadId,
-        limit: LIMIT,
-        offset: currentOffset
-      })
+    const data = await apiCall('get_posts', {
+      thread_id: currentThreadId,
+      limit: LIMIT,
+      offset: currentOffset
     });
-    const data = await response.json();
     renderPosts(data.posts || []);
     updatePagination(data.posts ? data.posts.length : 0);
   } catch (error) {
@@ -321,16 +294,7 @@ async function handleCreateThread(e) {
   const title = formData.get('title');
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'create_thread', title: title })
-    });
-    const data = await response.json();
+    const data = await apiCall('create_thread', { title });
     if (data.success) {
       form.reset();
       loadThreads();
@@ -348,20 +312,7 @@ async function handlePostSubmit(e) {
   const body = form.querySelector('textarea[name="body"]').value;
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      }, 
-      body: JSON.stringify({
-        action: 'create_post',
-        thread_id: currentThreadId,
-        body: body
-      })
-    });
-    const data = await response.json();
+    const data = await apiCall('create_post', { thread_id: currentThreadId, body });
     if (data.success) {
       form.reset();
       currentOffset = 0;
@@ -378,20 +329,9 @@ async function handleUserUpdate(e) {
   e.preventDefault();
   const form = e.target;
   const formData = new FormData(form);
-  const payload = Object.fromEntries(formData.entries());
-  payload.action = 'update_user';
-
+  const name = formData.get('name');
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify(payload)
-    });
-    const data = await response.json();
+    const data = await apiCall('update_user', { name });
     if (data.success) {
       alert('Name updated!');
       if (currentThreadId) loadPosts();
@@ -407,16 +347,7 @@ async function handleDelete(id) {
   if (!confirm('Are you sure you want to delete this post?')) return;
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'delete_post', id })
-    });
-    const data = await response.json();
+    const data = await apiCall('delete_post', { id });
     if (data.success) {
       loadPosts();
     } else {
@@ -464,66 +395,47 @@ function showView(viewId) {
     document.getElementById(id).classList.add('hidden');
   });
   document.getElementById(viewId).classList.remove('hidden');
-  
-  const header = document.getElementById('site-header');
+
+  // --- UI要素の表示/非表示とタイトルをデータ駆動で管理 ---
+  const viewConfig = {
+    'welcome-view':         { showHeader: false, showBackBtn: false, showThreadSettings: false, title: '' },
+    'thread-list-view':     { showHeader: true,  showBackBtn: false, showThreadSettings: false, title: 'Simple BBS' },
+    'thread-detail-view':   { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  title: () => currentThreadTitle },
+    'settings-view':        { showHeader: true,  showBackBtn: false, showThreadSettings: false, title: 'User Settings' },
+    'thread-settings-view': { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  title: 'Thread Settings' },
+  };
+
+  const config = viewConfig[viewId];
+  if (!config) return;
+
+  // ヘッダー
+  document.getElementById('site-header').classList.toggle('hidden', !config.showHeader);
+  // 戻るボタン
+  document.getElementById('back-btn').classList.toggle('hidden', !config.showBackBtn);
+  // スレッド設定メニュー
+  document.getElementById('nav-thread-settings').classList.toggle('hidden', !config.showThreadSettings);
+
+  // ページタイトル
   const pageTitle = document.getElementById('page-title');
-  const backBtn = document.getElementById('back-btn');
-  const navThreadSettings = document.getElementById('nav-thread-settings');
-
-  // Header visibility
-  if (viewId === 'welcome-view') {
-    header.classList.add('hidden');
+  if (typeof config.title === 'function') {
+    pageTitle.textContent = config.title();
   } else {
-    header.classList.remove('hidden');
+    pageTitle.textContent = config.title;
   }
 
-  // Back button visibility
-  if (viewId === 'thread-detail-view' || viewId === 'thread-settings-view') {
-    backBtn.classList.remove('hidden');
-  } else {
-    backBtn.classList.add('hidden');
-  }
-
-  // Thread Settings Menu visibility
-  if (viewId === 'thread-detail-view' || viewId === 'thread-settings-view') {
-    navThreadSettings.classList.remove('hidden');
-  } else {
-    navThreadSettings.classList.add('hidden');
-  }
-
-  // Page title content
-  switch (viewId) {
-    case 'thread-list-view':
-      pageTitle.textContent = 'Simple BBS';
-      break;
-    case 'settings-view':
-      pageTitle.textContent = 'User Settings';
+  // --- 各ビューに固有の処理 ---
+  if (viewId === 'settings-view') {
       document.getElementById('app-version').textContent = `App Version: ${APP_VERSION}`;
-      break;
-    case 'thread-detail-view':
-      pageTitle.textContent = currentThreadTitle;
-      break;
-    case 'thread-settings-view':
-      pageTitle.textContent = 'Thread Settings';
+  }
+  if (viewId === 'thread-settings-view') {
       loadThreadSettings();
-      break;
   }
 }
 
 async function loadThreadSettings() {
   if (!currentThreadId) return;
-
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'get_thread_settings', thread_id: currentThreadId })
-    });
-    const data = await response.json();
+    const data = await apiCall('get_thread_settings', { thread_id: currentThreadId });
     if (data.success) {
       renderThreadSettings(data);
     }
@@ -582,16 +494,7 @@ async function handleUpdateThreadTitle(e) {
   const title = document.getElementById('setting-thread-title').value;
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'update_thread_title', thread_id: currentThreadId, title: title })
-    });
-    const data = await response.json();
+    const data = await apiCall('update_thread_title', { thread_id: currentThreadId, title });
     if (data.success) {
       currentThreadTitle = title;
       alert('Thread title updated.');
@@ -605,16 +508,7 @@ async function handleUpdateThreadTitle(e) {
 
 async function handleAddMember(targetUuid) {
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'add_thread_member', thread_id: currentThreadId, target_user_uuid: targetUuid })
-    });
-    const data = await response.json();
+    const data = await apiCall('add_thread_member', { thread_id: currentThreadId, target_user_uuid: targetUuid });
     if (data.success) {
       loadThreadSettings();
     } else {
@@ -628,16 +522,7 @@ async function handleAddMember(targetUuid) {
 async function handleRemoveMember(targetUuid) {
   if (!confirm('Remove this member?')) return;
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'remove_thread_member', thread_id: currentThreadId, target_user_uuid: targetUuid })
-    });
-    const data = await response.json();
+    const data = await apiCall('remove_thread_member', { thread_id: currentThreadId, target_user_uuid: targetUuid });
     if (data.success) {
       loadThreadSettings();
     } else {
@@ -653,16 +538,7 @@ async function generateQrCode() {
   container.innerHTML = '';
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'generate_invite_token', thread_id: currentThreadId })
-    });
-    const data = await response.json();
+    const data = await apiCall('generate_invite_token', { thread_id: currentThreadId });
     if (data.success && data.token) {
       const inviteUrl = `${window.location.origin}${window.location.pathname}?thread_id=${currentThreadId}&invite_token=${data.token}`;
       new QRCode(container, {
@@ -678,16 +554,7 @@ async function generateQrCode() {
 
 async function joinWithInvite(threadId, token) {
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({ action: 'join_with_invite', thread_id: threadId, token: token })
-    });
-    const data = await response.json();
+    const data = await apiCall('join_with_invite', { thread_id: threadId, token });
     if (data.success) {
       alert('Joined thread successfully!');
       await loadThreads(); // 一覧を更新（画面遷移はhandleRoutingに任せる）
@@ -718,18 +585,9 @@ async function subscribeUser() {
 
 async function sendSubscriptionToBackEnd(subscription) {
   try {
-    await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'X-USER-ID': localStorage.getItem('user_uuid')
-      },
-      body: JSON.stringify({
-        action: 'register_subscription',
-        endpoint: subscription.endpoint,
-        keys: subscription.toJSON().keys
-      })
+    await apiCall('register_subscription', {
+      endpoint: subscription.endpoint,
+      keys: subscription.toJSON().keys
     });
   } catch (error) {
     console.error('Failed to send subscription', error);

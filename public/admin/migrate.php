@@ -1,15 +1,11 @@
 <?php
 
-require_once __DIR__ . '/../../config.php';
-$config = require __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../database.php';
 
 $output = '';
 
 try {
-    $dsn = "mysql:host={$config['db']['host']};dbname={$config['db']['dbname']};charset={$config['db']['charset']}";
-    $pdo = new PDO($dsn, $config['db']['user'], $config['db']['password'], [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-    ]);
+    $pdo = getPDO();
 
     // マイグレーション管理テーブルの作成 (存在しない場合)
     $pdo->exec("CREATE TABLE IF NOT EXISTS migrates (
