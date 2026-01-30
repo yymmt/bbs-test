@@ -1,4 +1,4 @@
-const APP_VERSION = 'v6';
+const APP_VERSION = 'v7';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -267,11 +267,15 @@ function renderPosts(posts) {
     
     const meta = document.createElement('div');
     meta.className = 'post-meta';
-    meta.textContent = `${post.id}. ${post.name || 'Unknown'} - ${post.created_at}`;
+    const timeStr = post.created_at.substring(11, 16);
+    meta.textContent = `${post.name} - ${timeStr}`;
 
     const body = document.createElement('div');
     body.className = 'post-body';
     body.textContent = post.body;
+    if (post.user_uuid === myUuid) {
+        body.classList.add('my-post');
+    }
 
     div.appendChild(meta);
     div.appendChild(body);
@@ -390,7 +394,7 @@ function handleNavClick(e) {
 }
 
 function showView(viewId) {
-  const views = ['welcome-view', 'thread-list-view', 'thread-detail-view', 'settings-view'];
+  const views = ['welcome-view', 'thread-list-view', 'thread-detail-view', 'settings-view', 'thread-settings-view'];
   views.forEach(id => {
     document.getElementById(id).classList.add('hidden');
   });
@@ -400,7 +404,7 @@ function showView(viewId) {
   const viewConfig = {
     'welcome-view':         { showHeader: false, showBackBtn: false, showThreadSettings: false, title: '' },
     'thread-list-view':     { showHeader: true,  showBackBtn: false, showThreadSettings: false, title: 'Simple BBS' },
-    'thread-detail-view':   { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  title: () => currentThreadTitle },
+    'thread-detail-view':   { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  title: currentThreadTitle },
     'settings-view':        { showHeader: true,  showBackBtn: false, showThreadSettings: false, title: 'User Settings' },
     'thread-settings-view': { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  title: 'Thread Settings' },
   };
@@ -417,11 +421,7 @@ function showView(viewId) {
 
   // ページタイトル
   const pageTitle = document.getElementById('page-title');
-  if (typeof config.title === 'function') {
-    pageTitle.textContent = config.title();
-  } else {
-    pageTitle.textContent = config.title;
-  }
+  pageTitle.textContent = config.title;
 
   // --- 各ビューに固有の処理 ---
   if (viewId === 'settings-view') {
