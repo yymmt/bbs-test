@@ -35,7 +35,7 @@ async function init() {
   }
 
   document.getElementById('register-form').addEventListener('submit', handleRegister);
-  document.getElementById('transfer-form').addEventListener('submit', handleTransfer);
+  // document.getElementById('transfer-form').addEventListener('submit', handleTransfer); // 引き継ぎコードについて、将来対応につきコメントアウト
   document.getElementById('thread-form').addEventListener('submit', handleCreateThread);
   document.getElementById('post-form').addEventListener('submit', handlePostSubmit);
   document.getElementById('user-form').addEventListener('submit', handleUserUpdate);
