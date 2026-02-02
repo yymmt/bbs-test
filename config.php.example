@@ -8,4 +8,10 @@ return [
         'password' => 'password',
         'charset' => 'utf8mb4',
     ],
+    'web_push' => [
+        'subject' => 'mailto:your-email@example.com',
+        'public_key' => 'ここに取得したpublicKeyを貼り付け',
+        'private_key' => 'ここに取得したprivateKeyを貼り付け',
+        // キー取得コマンド php -r "require 'vendor/autoload.php'; use Minishlink\WebPush\VAPID; var_dump(VAPID::createVapidKeys());"
+    ],
 ];

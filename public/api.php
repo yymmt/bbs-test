@@ -1,5 +1,10 @@
 <?php
 
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../database.php';
+use Minishlink\WebPush\WebPush;
+use Minishlink\WebPush\Subscription;
+
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 
@@ -12,11 +17,7 @@ $config = require __DIR__ . '/../config.php';
 
 try {
     // DB接続
-    $dsn = "mysql:host={$config['db']['host']};dbname={$config['db']['dbname']};charset={$config['db']['charset']}";
-    $pdo = new PDO($dsn, $config['db']['user'], $config['db']['password'], [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-    ]);
+    $pdo = getPDO();
 
     // リクエスト取得
     $input = json_decode(file_get_contents('php://input'), true);
@@ -30,7 +31,10 @@ try {
         if (empty($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
-        echo json_encode(['token' => $_SESSION['csrf_token']]);
+        echo json_encode([
+            'token' => $_SESSION['csrf_token'],
+            'vapidPublicKey' => $config['web_push']['public_key'] ?? null
+        ]);
         exit;
     }
 
@@ -46,7 +50,7 @@ try {
     if ($action === 'get_posts') {
         $thread_id = isset($input['thread_id']) ? (int)$input['thread_id'] : 0;
         $limit = isset($input['limit']) ? (int)$input['limit'] : 10;
-        $offset = isset($input['offset']) ? (int)$input['offset'] : 0;
+        $before_id = isset($input['before_id']) ? (int)$input['before_id'] : 0;
 
         if (empty($thread_id)) {
             throw new Exception('Thread ID is required');
@@ -62,10 +66,18 @@ try {
         }
 
         // usersテーブルと結合して名前を取得
-        $stmt = $pdo->prepare("SELECT p.id, u.name, p.body, p.user_uuid, p.created_at FROM posts p LEFT JOIN users u ON p.user_uuid = u.user_uuid WHERE p.thread_id = ? ORDER BY p.created_at DESC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $thread_id, PDO::PARAM_INT);
-        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
-        $stmt->bindValue(3, $offset, PDO::PARAM_INT);
+        $sql = "SELECT p.id, u.name, p.body, p.user_uuid, p.created_at FROM posts p LEFT JOIN users u ON p.user_uuid = u.user_uuid WHERE p.thread_id = :thread_id";
+        if ($before_id > 0) {
+            $sql .= " AND p.id < :before_id";
+        }
+        $sql .= " ORDER BY p.id DESC LIMIT :limit";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindValue(':thread_id', $thread_id, PDO::PARAM_INT);
+        if ($before_id > 0) {
+            $stmt->bindValue(':before_id', $before_id, PDO::PARAM_INT);
+        }
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
         echo json_encode(['posts' => $stmt->fetchAll()]);
 
@@ -91,6 +103,80 @@ try {
             $input['body'],
             $user_uuid
         ]);
+
+        // 通知送信処理
+        if (isset($config['web_push'])) {
+            error_log("Debug: Web Push config exists. Starting notification process.");
+
+            // スレッド参加者（自分以外）の購読情報を取得
+            $stmt = $pdo->prepare("
+                SELECT ps.endpoint, ps.public_key, ps.auth_token 
+                FROM thread_users tu
+                JOIN push_subscriptions ps ON tu.user_uuid = ps.user_uuid
+                WHERE tu.thread_id = ? AND tu.user_uuid != ?
+            ");
+            $stmt->execute([$thread_id, $user_uuid]);
+            $subscriptions = $stmt->fetchAll();
+
+            error_log("Debug: Found " . count($subscriptions) . " subscriptions for thread_id: $thread_id, excluding user: $user_uuid");
+            if (!empty($subscriptions)) {
+                error_log("Debug: Subscriptions data: " . print_r($subscriptions, true));
+            }
+
+            if ($subscriptions) {
+                $auth = [
+                    'VAPID' => [
+                        'subject' => $config['web_push']['subject'],
+                        'publicKey' => $config['web_push']['public_key'],
+                        'privateKey' => $config['web_push']['private_key'],
+                    ],
+                ];
+                $webPush = new WebPush($auth);
+
+                // スレッドタイトル取得
+                $stmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
+                $stmt->execute([$thread_id]);
+                $threadTitle = $stmt->fetchColumn();
+
+                $payload = json_encode([
+                    'title' => "New post in {$threadTitle}",
+                    'body' => mb_substr($input['body'], 0, 50) . (mb_strlen($input['body']) > 50 ? '...' : ''),
+                    'url' => "./?thread_id={$thread_id}",
+                    'icon' => 'images/icons/icon.png'
+                ]);
+
+                error_log("Debug: Payload: " . $payload);
+
+                foreach ($subscriptions as $sub) {
+                    $subscription = Subscription::create([
+                        'endpoint' => $sub['endpoint'],
+                        'publicKey' => $sub['public_key'],
+                        'authToken' => $sub['auth_token'],
+                    ]);
+                    $webPush->queueNotification($subscription, $payload);
+                }
+                
+                $report = $webPush->flush();
+
+                foreach ($report as $result) {
+                    if ($result->isSuccess()) {
+                        error_log("Debug: Notification sent successfully to " . $result->getEndpoint());
+                    } else {
+                        error_log("Debug: Notification failed for " . $result->getEndpoint() . ". Reason: " . $result->getReason());
+
+                        // 購読が無効または期限切れの場合、DBから削除する
+                        if ($result->isSubscriptionExpired()) {
+                            $stmt = $pdo->prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
+                            $stmt->execute([$result->getEndpoint()]);
+                            error_log("Debug: Deleted expired subscription: " . $result->getEndpoint());
+                        }
+                    }
+                }
+            }
+        } else {
+            error_log("Debug: Web Push config is NOT set.");
+        }
+
         echo json_encode(['success' => true]);
 
     } elseif ($action === 'get_threads') {
@@ -178,6 +264,122 @@ try {
             echo json_encode(['success' => true, 'user_uuid' => $result['user_uuid']]);
         } else {
             echo json_encode(['success' => false, 'error' => 'Invalid or expired code']);
+        }
+
+    } elseif ($action === 'register_subscription') {
+        if (empty($input['endpoint']) || empty($input['keys']['p256dh']) || empty($input['keys']['auth']) || empty($user_uuid)) {
+            throw new Exception('Missing required fields');
+        }
+        $stmt = $pdo->prepare("
+            INSERT INTO push_subscriptions (user_uuid, endpoint, public_key, auth_token) 
+            VALUES (?, ?, ?, ?) 
+            ON DUPLICATE KEY UPDATE public_key = VALUES(public_key), auth_token = VALUES(auth_token)
+        ");
+        $stmt->execute([$user_uuid, $input['endpoint'], $input['keys']['p256dh'], $input['keys']['auth']]);
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'get_thread_settings') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        if (empty($thread_id)) throw new Exception('Thread ID required');
+
+        // スレッド情報
+        $stmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
+        $stmt->execute([$thread_id]);
+        $thread = $stmt->fetch();
+        if (!$thread) throw new Exception('Thread not found');
+
+        // 参加メンバー
+        $stmt = $pdo->prepare("SELECT u.user_uuid, u.name FROM thread_users tu JOIN users u ON tu.user_uuid = u.user_uuid WHERE tu.thread_id = ?");
+        $stmt->execute([$thread_id]);
+        $members = $stmt->fetchAll();
+
+        // 招待候補（自分が参加している他のスレッドにいるが、このスレッドにはいないユーザー）
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT u.user_uuid, u.name
+            FROM users u
+            JOIN thread_users tu_other ON u.user_uuid = tu_other.user_uuid
+            WHERE tu_other.thread_id IN (
+                SELECT thread_id FROM thread_users WHERE user_uuid = ?
+            )
+            AND u.user_uuid NOT IN (
+                SELECT user_uuid FROM thread_users WHERE thread_id = ?
+            )
+        ");
+        $stmt->execute([$user_uuid, $thread_id]);
+        $candidates = $stmt->fetchAll();
+
+        echo json_encode([
+            'success' => true,
+            'title' => $thread['title'],
+            'members' => $members,
+            'candidates' => $candidates
+        ]);
+
+    } elseif ($action === 'update_thread_title') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        if (empty($thread_id) || empty($input['title'])) throw new Exception('Invalid input');
+
+        // 権限チェック（参加者ならOK）
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('Permission denied');
+
+        $stmt = $pdo->prepare("UPDATE threads SET title = ? WHERE id = ?");
+        $stmt->execute([$input['title'], $thread_id]);
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'add_thread_member') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        $target_uuid = $input['target_user_uuid'] ?? '';
+        if (empty($thread_id) || empty($target_uuid)) throw new Exception('Invalid input');
+
+        // 権限チェック
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('Permission denied');
+
+        $stmt = $pdo->prepare("INSERT IGNORE INTO thread_users (thread_id, user_uuid) VALUES (?, ?)");
+        $stmt->execute([$thread_id, $target_uuid]);
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'remove_thread_member') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        $target_uuid = $input['target_user_uuid'] ?? '';
+        if (empty($thread_id) || empty($target_uuid)) throw new Exception('Invalid input');
+
+        // 権限チェック
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('Permission denied');
+
+        $stmt = $pdo->prepare("DELETE FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $target_uuid]);
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'generate_invite_token') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        if (empty($thread_id)) throw new Exception('Thread ID required');
+
+        $token = bin2hex(random_bytes(16));
+        $expires_at = date('Y-m-d H:i:s', strtotime('+24 hours'));
+
+        $stmt = $pdo->prepare("INSERT INTO thread_invites (thread_id, token, expires_at) VALUES (?, ?, ?)");
+        $stmt->execute([$thread_id, $token, $expires_at]);
+        echo json_encode(['success' => true, 'token' => $token]);
+
+    } elseif ($action === 'join_with_invite') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        $token = $input['token'] ?? '';
+        if (empty($thread_id) || empty($token)) throw new Exception('Invalid input');
+
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_invites WHERE thread_id = ? AND token = ? AND expires_at > NOW()");
+        $stmt->execute([$thread_id, $token]);
+        if ($stmt->fetch()) {
+            $stmt = $pdo->prepare("INSERT IGNORE INTO thread_users (thread_id, user_uuid) VALUES (?, ?)");
+            $stmt->execute([$thread_id, $user_uuid]);
+            echo json_encode(['success' => true]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Invalid or expired token']);
         }
 
     } else {

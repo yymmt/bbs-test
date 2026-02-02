@@ -1,0 +1,8 @@
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|sw\.js)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "^manifest\.json$">
+    Header set Content-Type "application/manifest+json"
+  </FilesMatch>
+</IfModule>

@@ -9,16 +9,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/ress@4.0.0/dist/ress.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="style.css?v=1">
+    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="manifest" href="manifest.json?v=8">
+    <link rel="apple-touch-icon" href="images/icons/icon.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
     <header id="site-header" class="site-header hidden">
+        <button id="back-btn" class="back-btn hidden"><i class="bi bi-chevron-left"></i></button>
+        <h1 id="page-title" class="page-title"></h1>
         <button id="menu-btn" class="menu-btn"><i class="bi bi-list"></i></button>
-        <h1>Simple BBS</h1>
         <nav id="nav-menu" class="nav-menu hidden">
             <ul>
                 <li><a href="#" data-target="thread-list-view">Threads</a></li>
                 <li><a href="#" data-target="settings-view">User Settings</a></li>
+                <li id="nav-thread-settings" class="hidden"><a href="#" data-target="thread-settings-view">Thread Settings</a></li>
             </ul>
         </nav>
     </header>
@@ -36,9 +41,9 @@
                     </div>
                     <button type="submit">OK</button>
                 </form>
-                
+
+                <!-- 将来対応につき現在は非表示
                 <hr class="divider">
-                
                 <p>他の端末でも利用している方は、引き継ぎコードがあれば設定を引き継ぐことができます。</p>
                 <form id="transfer-form">
                     <div class="form-group">
@@ -47,12 +52,12 @@
                     </div>
                     <button type="submit">OK</button>
                 </form>
+                -->
             </section>
         </div>
 
         <div id="settings-view" class="hidden">
             <section class="user-settings-section">
-                <h2>User Settings</h2>
                 <form id="user-form">
                     <div class="form-group">
                         <label for="username">Your Name</label>
@@ -60,32 +65,52 @@
                         <button type="submit">Save Name</button>
                     </div>
                 </form>
+                <div id="app-version" class="app-version"></div>
             </section>
         </div>
 
         <!-- Thread List View -->
         <div id="thread-list-view" class="hidden">
-            <section class="thread-form-section">
-                <h2>Create New Thread</h2>
+            <section class="thread-list-section">
+                <div id="threads-container"></div>
                 <form id="thread-form">
                     <div class="form-group">
-                        <input type="text" name="title" required maxlength="100" placeholder="Thread Title">
-                        <button type="submit">Create</button>
+                        <input type="text" name="title" required maxlength="100" placeholder="Create New Thread">
+                        <button type="submit"><i class="bi bi-plus-circle"></i></button>
                     </div>
                 </form>
             </section>
-            <section class="thread-list-section">
-                <h2>Your Threads</h2>
-                <div id="threads-container"></div>
+        </div>
+
+        <!-- Thread Settings View -->
+        <div id="thread-settings-view" class="hidden">
+            <section class="thread-settings-section">
+                <h2>Thread Settings</h2>
+                <form id="thread-rename-form">
+                    <div class="form-group">
+                        <label>Thread Name</label>
+                        <input type="text" id="setting-thread-title" name="title" required maxlength="100">
+                        <button type="submit">Rename</button>
+                    </div>
+                </form>
+                
+                <h3>Members</h3>
+                <div id="member-list" class="member-list"></div>
+
+                <h3>Add Members</h3>
+                <div id="candidate-list" class="member-list"></div>
+
+                <h3>Invite via QR Code</h3>
+                <div id="qr-code-container" class="qr-code-container"></div>
             </section>
         </div>
 
         <!-- Thread Detail View (Posts) -->
         <div id="thread-detail-view" class="hidden">
-            <div class="thread-header">
-                <button id="back-to-threads-btn" class="secondary-btn"><i class="bi bi-arrow-left"></i> Back</button>
-                <h2 id="current-thread-title">Thread Title</h2>
-            </div>
+            <section class="post-list-section">
+                <div id="posts-container"></div>
+            </section>
+
             <section class="post-form-section">
                 <form id="post-form">
                     <div class="form-group">
@@ -94,16 +119,8 @@
                     <button type="submit">Post</button>
                 </form>
             </section>
-
-            <section class="post-list-section">
-                <div id="posts-container"></div>
-                <div class="pagination">
-                    <button id="prev-btn" disabled>Previous</button>
-                    <button id="next-btn">Next</button>
-                </div>
-            </section>
         </div>
     </main>
-    <script src="main.js?v=1"></script>
+    <script src="main.js?v=8"></script>
 </body>
 </html>
