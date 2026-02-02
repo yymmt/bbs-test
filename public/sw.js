@@ -1,9 +1,9 @@
-const CACHE_NAME = 'bbs-cache-v6';
+const CACHE_NAME = 'bbs-cache-v9';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=6',
-  './main.js?v=6',
+  './style.css?v=9',
+  './main.js?v=9',
   'https://unpkg.com/ress@4.0.0/dist/ress.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap',
@@ -60,7 +60,8 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   
-  const urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
+  // self.location.href (sw.jsのパス) を基準に相対パスを解決する
+  const urlToOpen = new URL(event.notification.data.url, self.location.href).href;
 
   const promiseChain = clients.matchAll({
     type: 'window',
