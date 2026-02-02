@@ -87,7 +87,7 @@ SPA (Single Page Application) 構成とする。
 - スレッド一覧（ホーム）: 自身が参加しているスレッドを最終更新日時の降順で表示する。
   - スレッドが存在しない場合は、その旨を伝えるメッセージを表示する。
   - スレッド新規作成: スレッド名を入力して作成する（作成者は自動的に参加）。
-- スレッド詳細（投稿一覧）: 選択したスレッドの投稿一覧を表示する。ページネーション対応。
+- スレッド詳細（投稿一覧）: 選択したスレッドの投稿一覧を表示する。無限スクロール対応（スクロールで過去の投稿を読み込む）。
   - ヘッダーのページタイトルにスレッド名を表示する。
   - URLパラメータ `thread_id` がある場合、該当スレッドを直接開く。招待トークン `invite_token` がある場合は、スレッドに参加処理を行った後に開く。
   - 新規投稿: スレッド内にメッセージを投稿する。
@@ -182,7 +182,7 @@ SPA (Single Page Application) 構成とする。
   - action=init_csrf: CSRFトークンを取得。
   - action=get_threads: 参加しているスレッド一覧を取得。
   - action=create_thread: 新規スレッド作成。title必須。
-  - action=get_posts: 指定スレッドの投稿一覧を取得。thread_id, limit, offsetパラメータ対応。
+  - action=get_posts: 指定スレッドの投稿一覧を取得。thread_id, limit, before_idパラメータ対応（カーソルページネーション）。
   - action=get_thread_settings: `thread_id`必須。スレッド名、参加メンバー、招待可能メンバーの一覧を取得。
   - action=create_post: 指定スレッドに投稿。thread_id, body必須。
   - action=delete_post: 投稿削除。id必須。

@@ -50,7 +50,7 @@ try {
     if ($action === 'get_posts') {
         $thread_id = isset($input['thread_id']) ? (int)$input['thread_id'] : 0;
         $limit = isset($input['limit']) ? (int)$input['limit'] : 10;
-        $offset = isset($input['offset']) ? (int)$input['offset'] : 0;
+        $before_id = isset($input['before_id']) ? (int)$input['before_id'] : 0;
 
         if (empty($thread_id)) {
             throw new Exception('Thread ID is required');
@@ -66,10 +66,18 @@ try {
         }
 
         // usersテーブルと結合して名前を取得
-        $stmt = $pdo->prepare("SELECT p.id, u.name, p.body, p.user_uuid, p.created_at FROM posts p LEFT JOIN users u ON p.user_uuid = u.user_uuid WHERE p.thread_id = ? ORDER BY p.created_at DESC LIMIT ? OFFSET ?");
-        $stmt->bindValue(1, $thread_id, PDO::PARAM_INT);
-        $stmt->bindValue(2, $limit, PDO::PARAM_INT);
-        $stmt->bindValue(3, $offset, PDO::PARAM_INT);
+        $sql = "SELECT p.id, u.name, p.body, p.user_uuid, p.created_at FROM posts p LEFT JOIN users u ON p.user_uuid = u.user_uuid WHERE p.thread_id = :thread_id";
+        if ($before_id > 0) {
+            $sql .= " AND p.id < :before_id";
+        }
+        $sql .= " ORDER BY p.id DESC LIMIT :limit";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindValue(':thread_id', $thread_id, PDO::PARAM_INT);
+        if ($before_id > 0) {
+            $stmt->bindValue(':before_id', $before_id, PDO::PARAM_INT);
+        }
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
         echo json_encode(['posts' => $stmt->fetchAll()]);
 

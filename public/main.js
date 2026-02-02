@@ -1,12 +1,14 @@
-const APP_VERSION = 'v7';
+const APP_VERSION = 'v8';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
-let currentOffset = 0;
 const LIMIT = 10;
 let currentThreadId = null;
 let currentThreadTitle = '';
 let threads = [];
+let oldestPostId = null;
+let isLoading = false;
+let hasMorePosts = true;
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
@@ -38,8 +40,10 @@ async function init() {
   document.getElementById('post-form').addEventListener('submit', handlePostSubmit);
   document.getElementById('user-form').addEventListener('submit', handleUserUpdate);
   document.getElementById('thread-rename-form').addEventListener('submit', handleUpdateThreadTitle);
-  document.getElementById('prev-btn').addEventListener('click', () => changePage(-1));
-  document.getElementById('next-btn').addEventListener('click', () => changePage(1));
+
+  // スクロールイベント監視（無限スクロール）
+  window.addEventListener('scroll', handleScroll);
+
   document.getElementById('back-btn').addEventListener('click', () => {
     const url = new URL(window.location);
     url.searchParams.delete('thread_id');
@@ -235,33 +239,61 @@ function renderThreads(threads) {
 function openThread(id, title) {
   currentThreadId = id;
   currentThreadTitle = title;
-  currentOffset = 0;
+  
+  // リセット
+  oldestPostId = null;
+  hasMorePosts = true;
+  document.getElementById('posts-container').innerHTML = '';
+  
   showView('thread-detail-view');
   loadPosts();
 }
 
-async function loadPosts() {
-  if (!currentThreadId) return;
+async function loadPosts(isPastLog = false) {
+  if (!currentThreadId || isLoading) return;
+  if (isPastLog && !hasMorePosts) return;
 
+  isLoading = true;
   try {
-    const data = await apiCall('get_posts', {
+    const params = {
       thread_id: currentThreadId,
-      limit: LIMIT,
-      offset: currentOffset
+      limit: LIMIT
+    };
+    if (isPastLog && oldestPostId) {
+      params.before_id = oldestPostId;
+    }
+
+    const data = await apiCall('get_posts', {
+      ...params
     });
-    renderPosts(data.posts || []);
-    updatePagination(data.posts ? data.posts.length : 0);
+
+    const posts = data.posts || [];
+    if (posts.length < LIMIT) {
+      hasMorePosts = false;
+    }
+
+    if (posts.length > 0) {
+      // ID降順で来るので、最後の要素が一番古い
+      oldestPostId = posts[posts.length - 1].id;
+      renderPosts(posts, isPastLog);
+    }
   } catch (error) {
     console.error('Failed to load posts', error);
+  } finally {
+    isLoading = false;
   }
 }
 
-function renderPosts(posts) {
+function renderPosts(posts, isPastLog) {
   const container = document.getElementById('posts-container');
-  container.innerHTML = '';
-
   const myUuid = localStorage.getItem('user_uuid');
-  posts.forEach(post => {
+  
+  // APIは新しい順(DESC)で返すので、表示用に古い順に並べ替える
+  const sortedPosts = [...posts].reverse();
+
+  const fragment = document.createDocumentFragment();
+
+  sortedPosts.forEach(post => {
     const div = document.createElement('div');
     div.className = 'post-item';
     
@@ -287,8 +319,25 @@ function renderPosts(posts) {
       div.appendChild(deleteBtn);
     }
 
-    container.appendChild(div);
+    fragment.appendChild(div);
   });
+
+  if (isPastLog) {
+    // 過去ログ読み込み時は上に追加し、スクロール位置を維持する
+    const previousHeight = document.documentElement.scrollHeight;
+    const previousScrollTop = document.documentElement.scrollTop;
+
+    container.insertBefore(fragment, container.firstChild);
+
+    // 追加されたコンテンツの高さ分だけスクロール位置を調整
+    const currentHeight = document.documentElement.scrollHeight;
+    document.documentElement.scrollTop = previousScrollTop + (currentHeight - previousHeight);
+  } else {
+    // 初回ロード時は中身をクリアして追加し、最下部へスクロール
+    container.innerHTML = '';
+    container.appendChild(fragment);
+    window.scrollTo(0, document.body.scrollHeight);
+  }
 }
 
 async function handleCreateThread(e) {
@@ -319,8 +368,10 @@ async function handlePostSubmit(e) {
     const data = await apiCall('create_post', { thread_id: currentThreadId, body });
     if (data.success) {
       form.reset();
-      currentOffset = 0;
-      loadPosts();
+      // 投稿後は最新の状態を再ロード
+      oldestPostId = null;
+      hasMorePosts = true;
+      loadPosts(false);
     } else {
       alert('Error: ' + (data.error || 'Unknown error'));
     }
@@ -338,7 +389,7 @@ async function handleUserUpdate(e) {
     const data = await apiCall('update_user', { name });
     if (data.success) {
       alert('Name updated!');
-      if (currentThreadId) loadPosts();
+      if (currentThreadId) loadPosts(false);
     } else {
       alert('Error: ' + (data.error || 'Unknown error'));
     }
@@ -353,7 +404,7 @@ async function handleDelete(id) {
   try {
     const data = await apiCall('delete_post', { id });
     if (data.success) {
-      loadPosts();
+      loadPosts(false); // 削除後もリロード
     } else {
       alert('Error: ' + (data.error || 'Delete failed'));
     }
@@ -362,15 +413,14 @@ async function handleDelete(id) {
   }
 }
 
-function changePage(direction) {
-  currentOffset += direction * LIMIT;
-  if (currentOffset < 0) currentOffset = 0;
-  loadPosts();
-}
+function handleScroll() {
+  // スレッド詳細画面以外では何もしない
+  if (document.getElementById('thread-detail-view').classList.contains('hidden')) return;
 
-function updatePagination(count) {
-  document.getElementById('prev-btn').disabled = currentOffset === 0;
-  document.getElementById('next-btn').disabled = count < LIMIT;
+  // 画面上部に近づいたら過去ログをロード (閾値50px)
+  if (window.scrollY < 50 && hasMorePosts && !isLoading) {
+    loadPosts(true);
+  }
 }
 
 function toggleMenu() {

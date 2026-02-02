@@ -114,12 +114,6 @@ body {
     margin-left: auto;
 }
 
-.pagination {
-    margin-top: 1rem;
-    display: flex;
-    justify-content: space-between;
-}
-
 /* Menu & Navigation */
 .back-btn {
     position: absolute;
