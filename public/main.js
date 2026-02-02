@@ -1,4 +1,4 @@
-const APP_VERSION = 'v8';
+const APP_VERSION = 'v9';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';

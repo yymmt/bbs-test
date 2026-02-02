@@ -141,7 +141,7 @@ try {
                 $payload = json_encode([
                     'title' => "New post in {$threadTitle}",
                     'body' => mb_substr($input['body'], 0, 50) . (mb_strlen($input['body']) > 50 ? '...' : ''),
-                    'url' => "./?thread_id={$thread_id}",
+                    'url' => "index.html?thread_id={$thread_id}",
                     'icon' => 'images/icons/icon.png'
                 ]);
 
