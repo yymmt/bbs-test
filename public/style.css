@@ -91,10 +91,8 @@ body {
 }
 
 .post-item {
-    border-bottom: 1px solid #eee;
     padding: 1rem 0;
     position: relative;
-    /* スマホ長押しメニュー用: iOSでシステムメニューを出さない */
     -webkit-touch-callout: none;
     display: grid;
     grid-template-rows: 18px auto;
@@ -103,6 +101,34 @@ body {
     grid-template-areas:
         "icon name time"
         "icon body time";
+}
+
+.post-item.same-user {
+	grid-template-rows: auto;
+	grid-template-columns: 50px fit-content(calc(100% - 90px)) 40px;
+	max-width: 90%;
+	grid-template-areas: "icon body time";
+}
+
+.post-item.my-post {
+	grid-template-areas: "time body";
+	grid-template-rows: auto;
+	grid-template-columns: 40px fit-content(calc(100% - 90px));
+	margin-left: auto;
+	justify-content: end;
+}
+
+.my-post .post-icon {
+	display: none;
+}
+.my-post .post-name {
+	display: none;
+}
+.same-user .post-icon {
+	display: none;
+}
+.same-user .post-name {
+	display: none;
 }
 
 .post-name {

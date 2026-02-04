@@ -1,4 +1,4 @@
-const APP_VERSION = 'v11';
+const APP_VERSION = 'v12';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -300,6 +300,8 @@ function renderPosts(posts, isPastLog) {
 
   const fragment = document.createDocumentFragment();
 
+  let lastUserUuid = null;
+
   sortedPosts.forEach(post => {
     const div = document.createElement('div');
     div.className = 'post-item';
@@ -307,6 +309,11 @@ function renderPosts(posts, isPastLog) {
       div.classList.add('my-post');
     }
     
+    if (lastUserUuid === post.user_uuid) {
+      div.classList.add('same-user');
+    }
+    lastUserUuid = post.user_uuid;
+
     const icon = document.createElement('div');
     icon.className = 'post-icon';
 
