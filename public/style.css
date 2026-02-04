@@ -96,27 +96,48 @@ body {
     position: relative;
     /* スマホ長押しメニュー用: iOSでシステムメニューを出さない */
     -webkit-touch-callout: none;
+    display: grid;
+    grid-template-rows: 18px auto;
+    grid-template-columns: 50px fit-content(calc(100% - 90px)) 40px;
+    max-width: 90%;
+    grid-template-areas:
+        "icon name time"
+        "icon body time";
 }
 
-.post-meta {
+.post-name {
+    grid-area: name;
     font-size: 0.85rem;
     color: #666;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0px;
+}
+
+.post-icon {
+    grid-area: icon;
+    background-color: #e7e7e7;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.post-time {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 0px;
+    grid-area: time;
+    align-self: end;
 }
 
 .post-body {
     white-space: pre-wrap;
     background: #e2e2e2;
-    width: fit-content;
-    max-width: 90%;
     padding: 0.5rem;
     border-radius: 10px;
+    grid-area: body;
 }
 
-.post-body.my-post {
-    margin-left: auto;
-    /* メニューボタンと被らないように余白を確保 */
-    margin-right: 2rem;
+.my-post .post-body {
+    background: #dfffdd;
 }
 
 /* Post Menu */

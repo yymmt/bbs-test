@@ -1,4 +1,4 @@
-const APP_VERSION = 'v10';
+const APP_VERSION = 'v11';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -303,20 +303,29 @@ function renderPosts(posts, isPastLog) {
   sortedPosts.forEach(post => {
     const div = document.createElement('div');
     div.className = 'post-item';
+    if (post.user_uuid === myUuid) {
+      div.classList.add('my-post');
+    }
     
-    const meta = document.createElement('div');
-    meta.className = 'post-meta';
+    const icon = document.createElement('div');
+    icon.className = 'post-icon';
+
+    const name = document.createElement('div');
+    name.className = 'post-name';
+    name.textContent = post.name;
+
+    const time = document.createElement('div');
+    time.className = 'post-time';
     const timeStr = post.created_at.substring(11, 16);
-    meta.textContent = `${post.name} - ${timeStr}`;
+    time.textContent = timeStr;
 
     const body = document.createElement('div');
     body.className = 'post-body';
     body.textContent = post.body;
-    if (post.user_uuid === myUuid) {
-        body.classList.add('my-post');
-    }
 
-    div.appendChild(meta);
+    div.appendChild(icon);
+    div.appendChild(name);
+    div.appendChild(time);
     div.appendChild(body);
 
     if (post.user_uuid === myUuid) {
