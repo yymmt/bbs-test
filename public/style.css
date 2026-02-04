@@ -35,7 +35,7 @@ body {
 
 .post-list-section, .welcome-section, .thread-list-section, .thread-settings-section {
     background: #fff;
-    padding: 1.5rem;
+    padding: 0.4rem;
     margin-bottom: 2rem;
     border-radius: 4px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -52,7 +52,14 @@ body {
 }
 
 .form-group {
-    margin-bottom: 1rem;
+}
+
+#post-form {
+	display: grid;
+	grid-template-columns: 1fr 30px;
+	grid-template-areas:
+		"text send-button";
+	gap: 0.5rem;
 }
 
 .form-group label {
@@ -67,6 +74,9 @@ body {
     border: 1px solid #ccc;
     border-radius: 4px;
     box-sizing: border-box;
+    field-sizing: content;
+    max-height: 8em;
+    vertical-align: bottom;
 }
 
 /* Welcome View */
@@ -91,27 +101,151 @@ body {
 }
 
 .post-item {
-    border-bottom: 1px solid #eee;
-    padding: 1rem 0;
+    padding: 0.2rem 0;
+    position: relative;
+    -webkit-touch-callout: none;
+    display: grid;
+    grid-template-rows: 18px auto;
+    grid-template-columns: 50px fit-content(calc(100% - 90px)) 40px;
+    max-width: 90%;
+    grid-template-areas:
+        "icon name time"
+        "icon body time";
 }
 
-.post-meta {
+.post-item.same-user {
+	grid-template-rows: auto;
+	grid-template-columns: 50px fit-content(calc(100% - 90px)) 40px;
+	max-width: 90%;
+	grid-template-areas: "icon body time";
+}
+
+.post-item.my-post {
+	grid-template-areas: "time body";
+	grid-template-rows: auto;
+	grid-template-columns: 40px fit-content(calc(100% - 90px));
+	margin-left: auto;
+	justify-content: end;
+}
+
+.my-post .post-icon {
+	display: none;
+}
+.my-post .post-name {
+	display: none;
+}
+.same-user .post-icon {
+	display: none;
+}
+.same-user .post-name {
+	display: none;
+}
+
+.post-name {
+    grid-area: name;
     font-size: 0.85rem;
     color: #666;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0px;
+}
+
+.post-icon {
+    grid-area: icon;
+    background-color: #e7e7e7;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.post-time {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 0px;
+    grid-area: time;
+    align-self: end;
 }
 
 .post-body {
     white-space: pre-wrap;
     background: #e2e2e2;
-    width: fit-content;
-    max-width: 90%;
     padding: 0.5rem;
     border-radius: 10px;
+    grid-area: body;
 }
 
-.post-body.my-post {
-    margin-left: auto;
+.my-post .post-body {
+    background: #dfffdd;
+}
+
+/* Post Menu */
+.post-menu-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0;
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    display: none; /* デフォルト非表示 */
+    z-index: 5;
+}
+
+.post-item:hover .post-menu-btn {
+    display: block; /* PC: ホバー時に表示 */
+}
+
+.post-menu-btn:hover {
+    color: #333;
+}
+
+.post-menu {
+    position: absolute;
+    top: 2rem;
+    right: 0.5rem;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 10;
+    min-width: 120px;
+    display: none;
+}
+
+.post-menu.show {
+    display: block;
+}
+
+.post-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 0.8rem 1rem;
+    color: #333;
+    font-size: 0.9rem;
+    border-radius: 0;
+    border-bottom: 1px solid #f4f4f4;
+}
+
+.post-menu button:last-child {
+    border-bottom: none;
+}
+
+.post-menu button:hover {
+    background-color: #f5f5f5;
+}
+
+.post-menu button.delete-btn {
+    color: #dc3545;
+}
+
+@media (hover: none) {
+    /* スマホなどホバーがないデバイスではボタンを非表示（長押しのみ） */
+    .post-menu-btn {
+        display: none !important;
+    }
 }
 
 /* Menu & Navigation */
@@ -170,9 +304,8 @@ body {
 }
 
 /* Button styles (since ress.css resets them) */
-button {
+[role=button], [type=button], [type=reset], [type=submit], button {
     cursor: pointer;
-    padding: 0.5rem 1rem;
     background-color: #007bff;
     color: white;
     border: none;
