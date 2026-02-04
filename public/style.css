@@ -303,9 +303,9 @@ body {
     display: none;
 }
 
-/* Button styles (since ress.css resets them) */
 [role=button], [type=button], [type=reset], [type=submit], button {
     cursor: pointer;
+    padding: 0.5rem 0.5rem;
     background-color: #007bff;
     color: white;
     border: none;
