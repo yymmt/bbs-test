@@ -1,4 +1,4 @@
-const APP_VERSION = 'v9';
+const APP_VERSION = 'v10';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -55,6 +55,13 @@ async function init() {
   document.getElementById('menu-btn').addEventListener('click', toggleMenu);
   document.querySelectorAll('.nav-menu a').forEach(link => {
     link.addEventListener('click', handleNavClick);
+  });
+
+  // メニュー外クリックで閉じる
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.post-menu-btn') && !e.target.closest('.post-menu')) {
+      closeAllMenus();
+    }
   });
 }
 
@@ -313,10 +320,31 @@ function renderPosts(posts, isPastLog) {
     div.appendChild(body);
 
     if (post.user_uuid === myUuid) {
+      // メニューボタン (PC用)
+      const menuBtn = document.createElement('button');
+      menuBtn.className = 'post-menu-btn';
+      menuBtn.innerHTML = '<i class="bi bi-three-dots-vertical"></i>';
+      menuBtn.onclick = (e) => {
+        e.stopPropagation();
+        togglePostMenu(post.id);
+      };
+      div.appendChild(menuBtn);
+
+      // メニュー本体
+      const menuDiv = document.createElement('div');
+      menuDiv.className = 'post-menu';
+      menuDiv.id = `post-menu-${post.id}`;
+      
       const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = 'Delete';
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.innerHTML = '<i class="bi bi-trash"></i> Delete';
       deleteBtn.onclick = () => handleDelete(post.id);
-      div.appendChild(deleteBtn);
+      
+      menuDiv.appendChild(deleteBtn);
+      div.appendChild(menuDiv);
+
+      // スマホ長押し対応
+      setupLongPress(div, post.id);
     }
 
     fragment.appendChild(div);
@@ -338,6 +366,53 @@ function renderPosts(posts, isPastLog) {
     container.appendChild(fragment);
     window.scrollTo(0, document.body.scrollHeight);
   }
+}
+
+function setupLongPress(element, postId) {
+  let timer;
+  const DURATION = 500; // 長押し判定時間 (ms)
+
+  element.addEventListener('touchstart', (e) => {
+    // 複数指タップは無視
+    if (e.touches.length > 1) return;
+    
+    timer = setTimeout(() => {
+      togglePostMenu(postId, true); // true = 強制表示
+      if (navigator.vibrate) navigator.vibrate(50); // バイブレーション
+    }, DURATION);
+  }, { passive: true });
+
+  const clearTimer = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  element.addEventListener('touchend', clearTimer);
+  element.addEventListener('touchmove', clearTimer);
+  
+  // 長押し時のブラウザ標準メニューを抑止
+  element.addEventListener('contextmenu', (e) => {
+    // 自身の投稿に対する長押しメニューを優先
+    e.preventDefault();
+  });
+}
+
+function togglePostMenu(postId, forceShow = false) {
+  const menu = document.getElementById(`post-menu-${postId}`);
+  if (!menu) return;
+
+  const isHidden = !menu.classList.contains('show');
+  closeAllMenus(); // 他のメニューを閉じる
+
+  if (isHidden || forceShow) {
+    menu.classList.add('show');
+  }
+}
+
+function closeAllMenus() {
+  document.querySelectorAll('.post-menu.show').forEach(el => el.classList.remove('show'));
 }
 
 async function handleCreateThread(e) {
