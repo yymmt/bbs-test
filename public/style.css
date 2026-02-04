@@ -35,7 +35,7 @@ body {
 
 .post-list-section, .welcome-section, .thread-list-section, .thread-settings-section {
     background: #fff;
-    padding: 1.5rem;
+    padding: 0.4rem;
     margin-bottom: 2rem;
     border-radius: 4px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -52,7 +52,14 @@ body {
 }
 
 .form-group {
-    margin-bottom: 1rem;
+}
+
+#post-form {
+	display: grid;
+	grid-template-columns: 1fr 30px;
+	grid-template-areas:
+		"text send-button";
+	gap: 0.5rem;
 }
 
 .form-group label {
@@ -67,6 +74,9 @@ body {
     border: 1px solid #ccc;
     border-radius: 4px;
     box-sizing: border-box;
+    field-sizing: content;
+    max-height: 8em;
+    vertical-align: bottom;
 }
 
 /* Welcome View */
@@ -91,7 +101,7 @@ body {
 }
 
 .post-item {
-    padding: 1rem 0;
+    padding: 0.2rem 0;
     position: relative;
     -webkit-touch-callout: none;
     display: grid;
@@ -294,9 +304,8 @@ body {
 }
 
 /* Button styles (since ress.css resets them) */
-button {
+[role=button], [type=button], [type=reset], [type=submit], button {
     cursor: pointer;
-    padding: 0.5rem 1rem;
     background-color: #007bff;
     color: white;
     border: none;
