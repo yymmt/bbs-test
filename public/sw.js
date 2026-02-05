@@ -1,9 +1,9 @@
-const CACHE_NAME = 'bbs-cache-v13';
+const CACHE_NAME = 'bbs-cache-v14';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=13',
-  './main.js?v=13',
+  './style.css?v=14',
+  './main.js?v=14',
   'https://unpkg.com/ress@4.0.0/dist/ress.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap',

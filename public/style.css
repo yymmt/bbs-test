@@ -127,6 +127,7 @@ body {
 	grid-template-columns: 40px fit-content(calc(100% - 90px));
 	margin-left: auto;
 	justify-content: end;
+    /* 微調整指示: @media (hover: hover) を使って、PCでのみ、 padding-right: 30px;を追加。post-menu-btnのスペース確保のため */
 }
 
 .my-post .post-icon {

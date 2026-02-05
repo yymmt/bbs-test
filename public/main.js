@@ -1,4 +1,4 @@
-const APP_VERSION = 'v13';
+const APP_VERSION = 'v14';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -379,6 +379,11 @@ async function loadPosts(isPastLog = false) {
 
       if (posts.length < LIMIT) hasMorePosts = false;
       if (posts.length > 0) {
+        // 数値型を保証（IndexedDBの検索キー用）
+        posts.forEach(p => {
+          p.id = Number(p.id);
+          p.thread_id = Number(p.thread_id);
+        });
         // DB保存
         await dbPut('posts', posts);
         await dbPut('users', users);
@@ -417,6 +422,10 @@ async function loadPosts(isPastLog = false) {
     const newUsers = data.users || [];
 
     if (newPosts.length > 0 || newUsers.length > 0) {
+      newPosts.forEach(p => {
+        p.id = Number(p.id);
+        p.thread_id = Number(p.thread_id);
+      });
       await dbPut('posts', newPosts);
       await dbPut('users', newUsers);
 
