@@ -1,5 +1,8 @@
 Gemini Code Assist 向けの指示テキストです。
 
+- 方針の相談の時:
+  - ai_context.mdもソースコードも修正しないようにしてください。
+  - 相談内容に応じて、取りうる技術的な手段のバリエーションを提示したり、ソースコードの修正方針などを提示してください。（その場合も直ちにソースコードを修正するのではなく、上記「仕様変更の指示」「コード反映の指示」「微調整の指示」を待ってください。）
 - 仕様変更の指示時:
   1. まず ai_context.md のみを修正し、他ファイルは変更しないでください。
   2. ai_context.md の粒度より細かい仕様は、ai_context.md には書かずコンテキストとして記憶してください。
@@ -10,9 +13,6 @@ Gemini Code Assist 向けの指示テキストです。
   - リファクタリングは積極的に行わないが、リファクタリングが強く推奨される場合は教えて下さい。(コードをすぐに修正するのではなく。)
 - 微調整の指示時:
   - 指定したコード内に「微調整指示」とコメントがある場合、内容に応じて修正してください。リファクタリングやレイアウト修正を想定しています。指示が現実的でない、あるいは大きくデメリットがある場合はその旨返答してください。
-- 方針の相談の時:
-  - ai_context.mdもソースコードも修正しないようにしてください。
-  - 相談内容に応じて、取りうる技術的な手段のバリエーションを提示したり、ソースコードの修正方針などを提示してください。（その場合も直ちにソースコードを修正するのではなく、上記「仕様変更の指示」「コード反映の指示」「微調整の指示」を待ってください。）
 - 共通ルール:
   - Gemini Code Assist が生成したテキストを、こちらで手動修正している場合がありますので、必ず修正対象のファイル内容を読み込み直してから回答生成してください。
 
@@ -120,6 +120,12 @@ SPA (Single Page Application) 構成とする。
     - 他のユーザーがQRコードをスキャンしてURLにアクセスすると、スレッドへの参加が完了する。
 - 通知機能: スレッドに新着投稿があった際、参加している他のユーザーへWeb Push通知を送信する。
   - 通知クリック時、既存のウィンドウ（PWA含む）があればフォーカスして該当スレッドへ遷移し、なければ新規ウィンドウを開く。
+  - アプリ使用中（アクティブ）の挙動:
+    - 対象スレッドを開いている場合: 通知は表示せず、画面を自動更新する（新規投稿の表示、削除の反映）。
+    - 対象スレッド以外を開いている場合: 通常通り通知を表示する。
+  - 削除時の挙動:
+    - 対象スレッドを開いている場合: 画面から該当投稿を削除する。
+    - それ以外の場合: 通知は表示しない。
 - PWA対応: スマートフォンのホーム画面に追加可能にする（manifest.json, Service Worker）。
 - 投稿削除: 自身の投稿のみ削除可能とする（UUIDで判定）。パスワード入力は不要。投稿メニューから実行する。
 
@@ -137,6 +143,7 @@ SPA (Single Page Application) 構成とする。
 - body: TEXT NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 - updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+- deleted_at: DATETIME DEFAULT NULL
 - FOREIGN KEY (thread_id) REFERENCES threads(id)
 
 ## threads テーブル
@@ -198,6 +205,7 @@ SPA (Single Page Application) 構成とする。
 - 007_create_push_subscriptions.sql
 - 008_create_thread_invites.sql
 - 009_add_updated_at_to_posts.sql
+- 010_add_deleted_at_to_posts.sql
 
 # API仕様 (詳細設計)
 - POST /api.php
@@ -207,9 +215,12 @@ SPA (Single Page Application) 構成とする。
   - action=create_thread: 新規スレッド作成。title必須。
   - action=get_posts: 指定スレッドの投稿一覧を取得。thread_id, limit, before_id（過去ログ）, after_id（差分取得）パラメータ対応。
     - レスポンス: 投稿リスト(posts)と、それに関連するユーザー情報(users)を分離して返す（サイドローディング）。
+    - 通常は削除済み（deleted_at IS NOT NULL）を除外して返す。
   - action=get_thread_settings: `thread_id`必須。スレッド名、参加メンバー、招待可能メンバーの一覧を取得。
   - action=create_post: 指定スレッドに投稿。thread_id, body必須。
-  - action=delete_post: 投稿削除。id必須。
+    - 完了後、他ユーザーへWeb Push通知（type=create）を送信する。
+  - action=delete_post: 投稿削除。id必須。物理削除ではなく論理削除（deleted_at更新）を行う。
+    - 完了後、他ユーザーへWeb Push通知（type=delete）を送信する。
   - action=get_user: 現在のユーザー情報を取得。
   - action=register_user: ユーザー登録（初回）。name必須。
   - action=update_user: ユーザー名を更新。name必須。

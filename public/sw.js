@@ -1,9 +1,9 @@
-const CACHE_NAME = 'bbs-cache-v16';
+const CACHE_NAME = 'bbs-cache-v19';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=17',
-  './main.js?v=17',
+  './style.css?v=19',
+  './main.js?v=19',
   'https://unpkg.com/ress@4.0.0/dist/ress.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap',
@@ -45,15 +45,35 @@ self.addEventListener('fetch', event => {
 // Push event: Show notification
 self.addEventListener('push', event => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'New Notification';
-  const options = {
-    body: data.body || '',
-    icon: data.icon || 'images/icons/icon.png',
-    data: { url: data.url || './' }
-  };
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+  
+  const promiseChain = clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true
+  }).then(windowClients => {
+    let isThreadOpen = false;
+    
+    for (let client of windowClients) {
+      const url = new URL(client.url);
+      const clientThreadId = url.searchParams.get('thread_id');
+      
+      if (client.visibilityState === 'visible' && clientThreadId == data.thread_id) {
+        client.postMessage(data);
+        isThreadOpen = true;
+      }
+    }
+    
+    if (!isThreadOpen && data.type !== 'delete') {
+      const title = data.title || 'New Notification';
+      const options = {
+        body: data.body || '',
+        icon: data.icon || 'images/icons/icon.png',
+        data: { url: data.url || './' }
+      };
+      return self.registration.showNotification(title, options);
+    }
+  });
+
+  event.waitUntil(promiseChain);
 });
 
 // Notification click event

@@ -1,4 +1,4 @@
-const APP_VERSION = 'v16';
+const APP_VERSION = 'v19';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -64,6 +64,17 @@ async function dbPut(storeName, data) {
     } else {
       store.put(data);
     }
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+async function dbDelete(storeName, id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    store.delete(id);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
@@ -144,6 +155,21 @@ async function init() {
   registerServiceWorker();
   const hasUuid = checkUuid();
   
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+      const data = event.data;
+      if (data.thread_id && data.thread_id == currentThreadId) {
+        if (data.type === 'create') {
+          loadPosts(false);
+        } else if (data.type === 'delete') {
+          dbDelete('posts', Number(data.post_id)).then(() => {
+             loadPosts(false);
+          });
+        }
+      }
+    });
+  }
+
   if (hasUuid) {
     await fetchCsrfToken();
     subscribeUser(); // 通知購読を試みる
@@ -682,6 +708,8 @@ async function handleDelete(id) {
   try {
     const data = await apiCall('delete_post', { id });
     if (data.success) {
+      // IndexedDBからも削除
+      await dbDelete('posts', id);
       loadPosts(false); // 削除後もリロード
     } else {
       alert('Error: ' + (data.error || 'Delete failed'));
