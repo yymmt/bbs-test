@@ -303,12 +303,6 @@ try {
         }
 
         echo json_encode(['success' => true]);
-
-    } elseif ($action === 'get_user') {
-        $stmt = $pdo->prepare("SELECT name FROM users WHERE user_uuid = ?");
-        $stmt->execute([$user_uuid]);
-        }
-
     } elseif ($action === 'get_user') {
         $stmt = $pdo->prepare("SELECT name FROM users WHERE user_uuid = ?");
         $stmt->execute([$user_uuid]);
