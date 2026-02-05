@@ -125,81 +125,25 @@ try {
             $user_uuid
         ]);
 
+        $new_post_id = $pdo->lastInsertId();
+
         // 通知送信処理
-        if (isset($config['web_push'])) {
-            error_log("Debug: Web Push config exists. Starting notification process.");
+        sendWebPush($pdo, $config, $thread_id, $user_uuid, function() use ($pdo, $thread_id, $new_post_id, $input) {
+            // スレッドタイトル取得
+            $stmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
+            $stmt->execute([$thread_id]);
+            $threadTitle = $stmt->fetchColumn();
 
-            // スレッド参加者（自分以外）の購読情報を取得
-            $stmt = $pdo->prepare("
-                SELECT ps.endpoint, ps.public_key, ps.auth_token 
-                FROM thread_users tu
-                JOIN push_subscriptions ps ON tu.user_uuid = ps.user_uuid
-                WHERE tu.thread_id = ? AND tu.user_uuid != ?
-            ");
-            $stmt->execute([$thread_id, $user_uuid]);
-            $subscriptions = $stmt->fetchAll();
-
-            error_log("Debug: Found " . count($subscriptions) . " subscriptions for thread_id: $thread_id, excluding user: $user_uuid");
-            if (!empty($subscriptions)) {
-                error_log("Debug: Subscriptions data: " . print_r($subscriptions, true));
-            }
-
-            if ($subscriptions) {
-                $auth = [
-                    'VAPID' => [
-                        'subject' => $config['web_push']['subject'],
-                        'publicKey' => $config['web_push']['public_key'],
-                        'privateKey' => $config['web_push']['private_key'],
-                    ],
-                ];
-                $webPush = new WebPush($auth);
-
-                // スレッドタイトル取得
-                $stmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
-                $stmt->execute([$thread_id]);
-                $threadTitle = $stmt->fetchColumn();
-
-                $payload = json_encode([
-                    'type' => 'create',
-                    'thread_id' => $thread_id,
-                    'post_id' => $pdo->lastInsertId(),
-                    'title' => "New post in {$threadTitle}",
-                    'body' => mb_substr($input['body'], 0, 50) . (mb_strlen($input['body']) > 50 ? '...' : ''),
-                    'url' => "index.html?thread_id={$thread_id}",
-                    'icon' => 'images/icons/icon.png'
-                ]);
-
-                error_log("Debug: Payload: " . $payload);
-
-                foreach ($subscriptions as $sub) {
-                    $subscription = Subscription::create([
-                        'endpoint' => $sub['endpoint'],
-                        'publicKey' => $sub['public_key'],
-                        'authToken' => $sub['auth_token'],
-                    ]);
-                    $webPush->queueNotification($subscription, $payload);
-                }
-                
-                $report = $webPush->flush();
-
-                foreach ($report as $result) {
-                    if ($result->isSuccess()) {
-                        error_log("Debug: Notification sent successfully to " . $result->getEndpoint());
-                    } else {
-                        error_log("Debug: Notification failed for " . $result->getEndpoint() . ". Reason: " . $result->getReason());
-
-                        // 購読が無効または期限切れの場合、DBから削除する
-                        if ($result->isSubscriptionExpired()) {
-                            $stmt = $pdo->prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
-                            $stmt->execute([$result->getEndpoint()]);
-                            error_log("Debug: Deleted expired subscription: " . $result->getEndpoint());
-                        }
-                    }
-                }
-            }
-        } else {
-            error_log("Debug: Web Push config is NOT set.");
-        }
+            return json_encode([
+                'type' => 'create',
+                'thread_id' => $thread_id,
+                'post_id' => $new_post_id,
+                'title' => "New post in {$threadTitle}",
+                'body' => mb_substr($input['body'], 0, 50) . (mb_strlen($input['body']) > 50 ? '...' : ''),
+                'url' => "index.html?thread_id={$thread_id}",
+                'icon' => 'images/icons/icon.png'
+            ]);
+        });
 
         echo json_encode(['success' => true]);
 
@@ -261,54 +205,15 @@ try {
         $stmt->execute([$input['id']]);
         
         // 通知送信処理
-        if (isset($config['web_push'])) {
-            // スレッド参加者（自分以外）の購読情報を取得
-            $stmt = $pdo->prepare("
-                SELECT ps.endpoint, ps.public_key, ps.auth_token 
-                FROM thread_users tu
-                JOIN push_subscriptions ps ON tu.user_uuid = ps.user_uuid
-                WHERE tu.thread_id = ? AND tu.user_uuid != ?
-            ");
-            $stmt->execute([$thread_id, $user_uuid]);
-            $subscriptions = $stmt->fetchAll();
-
-            if ($subscriptions) {
-                $auth = [
-                    'VAPID' => [
-                        'subject' => $config['web_push']['subject'],
-                        'publicKey' => $config['web_push']['public_key'],
-                        'privateKey' => $config['web_push']['private_key'],
-                    ],
-                ];
-                $webPush = new WebPush($auth);
-
-                $payload = json_encode([
-                    'type' => 'delete',
-                    'thread_id' => $thread_id,
-                    'post_id' => $input['id'],
-                ]);
-
-                foreach ($subscriptions as $sub) {
-                    $subscription = Subscription::create([
-                        'endpoint' => $sub['endpoint'],
-                        'publicKey' => $sub['public_key'],
-                        'authToken' => $sub['auth_token'],
-                    ]);
-                    $webPush->queueNotification($subscription, $payload);
-                }
-                
-                $report = $webPush->flush();
-                // エラーハンドリング（期限切れ削除など）はcreate_postと同様に行うが、ここでは省略
-            }
-        }
+        sendWebPush($pdo, $config, $thread_id, $user_uuid, function() use ($thread_id, $input) {
+            return json_encode([
+                'type' => 'delete',
+                'thread_id' => $thread_id,
+                'post_id' => $input['id'],
+            ]);
+        });
 
         echo json_encode(['success' => true]);
-
-    } elseif ($action === 'get_user') {
-        $stmt = $pdo->prepare("SELECT name FROM users WHERE user_uuid = ?");
-        $stmt->execute([$user_uuid]);
-        }
-
     } elseif ($action === 'get_user') {
         $stmt = $pdo->prepare("SELECT name FROM users WHERE user_uuid = ?");
         $stmt->execute([$user_uuid]);
@@ -480,4 +385,55 @@ try {
     error_log($log_message);
     http_response_code(500);
     echo json_encode(['error' => 'Internal Server Error']);
+}
+
+/**
+ * Web Push通知を送信する共通関数
+ */
+function sendWebPush(PDO $pdo, array $config, int $thread_id, string $user_uuid, callable $payloadBuilder)
+{
+    if (!isset($config['web_push'])) {
+        return;
+    }
+
+    // スレッド参加者（自分以外）の購読情報を取得
+    $stmt = $pdo->prepare("
+        SELECT ps.endpoint, ps.public_key, ps.auth_token 
+        FROM thread_users tu
+        JOIN push_subscriptions ps ON tu.user_uuid = ps.user_uuid
+        WHERE tu.thread_id = ? AND tu.user_uuid != ?
+    ");
+    $stmt->execute([$thread_id, $user_uuid]);
+    $subscriptions = $stmt->fetchAll();
+
+    if ($subscriptions) {
+        $auth = [
+            'VAPID' => [
+                'subject' => $config['web_push']['subject'],
+                'publicKey' => $config['web_push']['public_key'],
+                'privateKey' => $config['web_push']['private_key'],
+            ],
+        ];
+        $webPush = new WebPush($auth);
+
+        $payload = $payloadBuilder();
+
+        foreach ($subscriptions as $sub) {
+            $subscription = Subscription::create([
+                'endpoint' => $sub['endpoint'],
+                'publicKey' => $sub['public_key'],
+                'authToken' => $sub['auth_token'],
+            ]);
+            $webPush->queueNotification($subscription, $payload);
+        }
+        
+        $report = $webPush->flush();
+        
+        foreach ($report as $result) {
+            if (!$result->isSuccess() && $result->isSubscriptionExpired()) {
+                $stmt = $pdo->prepare("DELETE FROM push_subscriptions WHERE endpoint = ?");
+                $stmt->execute([$result->getEndpoint()]);
+            }
+        }
+    }
 }
