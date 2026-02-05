@@ -1,4 +1,4 @@
-const APP_VERSION = 'v15';
+const APP_VERSION = 'v16';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -15,7 +15,20 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- IndexedDB Helper Functions ---
-const DB_NAME = 'bbs-db';
+const DB_NAME = (() => {
+  const parts = window.location.pathname.split('/');
+  // 最後の1つ前の要素を取得(最後の要素は、空文字列や"index.html"などを想定)
+  let segment = parts[parts.length - 2];
+  
+  // "public"であればもう1つ前の要素を取得
+  if (segment === 'public') {
+    segment = parts[parts.length - 3];
+  }
+  
+  // 空文字やundefinedの場合はデフォルト値、使えない文字は置換
+  if (!segment) segment = 'default';
+  return `bbs-db-${segment.replace(/[^a-zA-Z0-9-_]/g, '-')}`;
+})();
 const DB_VERSION = 1;
 let dbInstance = null;
 
