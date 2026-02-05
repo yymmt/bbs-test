@@ -1,4 +1,4 @@
-const APP_VERSION = 'v14';
+const APP_VERSION = 'v15';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -56,7 +56,7 @@ async function dbPut(storeName, data) {
   });
 }
 
-async function dbGetPosts(threadId, limit = 20) {
+async function dbGetPosts(threadId, limit = 20, beforeId = null) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction('posts', 'readonly');
@@ -66,7 +66,16 @@ async function dbGetPosts(threadId, limit = 20) {
     const posts = [];
     request.onsuccess = (event) => {
       const cursor = event.target.result;
-      if (cursor && posts.length < limit) {
+      if (!cursor) {
+        resolve(posts);
+        return;
+      }
+
+      const post = cursor.value;
+
+      if (beforeId !== null && post.id >= beforeId) {
+        cursor.continue();
+      } else if (posts.length < limit) {
         posts.push(cursor.value);
         cursor.continue();
       } else {
@@ -368,6 +377,18 @@ async function loadPosts(isPastLog = false) {
   try {
     // 過去ログ読み込みの場合
     if (isPastLog && oldestPostId) {
+      // まずキャッシュを確認
+      const cachedPosts = await dbGetPosts(currentThreadId, LIMIT, oldestPostId);
+      if (cachedPosts.length > 0) {
+        oldestPostId = cachedPosts[cachedPosts.length - 1].id;
+        const userUuids = [...new Set(cachedPosts.map(p => p.user_uuid))];
+        const userMap = await dbGetUsers(userUuids);
+        renderPosts(cachedPosts, isPastLog, userMap);
+        isLoading = false;
+        return;
+      }
+
+      // キャッシュになければAPIコール
       const data = await apiCall('get_posts', {
         thread_id: currentThreadId,
         limit: LIMIT,
