@@ -1,4 +1,4 @@
-const APP_VERSION = 'v12';
+const APP_VERSION = 'v15';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -13,6 +13,119 @@ let hasMorePosts = true;
 document.addEventListener('DOMContentLoaded', () => {
   init();
 });
+
+// --- IndexedDB Helper Functions ---
+const DB_NAME = 'bbs-db';
+const DB_VERSION = 1;
+let dbInstance = null;
+
+async function openDB() {
+  if (dbInstance) return dbInstance;
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('posts')) {
+        const store = db.createObjectStore('posts', { keyPath: 'id' });
+        store.createIndex('thread_id', 'thread_id', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('users')) {
+        db.createObjectStore('users', { keyPath: 'user_uuid' });
+      }
+    };
+    request.onsuccess = (event) => {
+      dbInstance = event.target.result;
+      resolve(dbInstance);
+    };
+    request.onerror = (event) => reject(event.target.error);
+  });
+}
+
+async function dbPut(storeName, data) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    if (Array.isArray(data)) {
+      data.forEach(item => store.put(item));
+    } else {
+      store.put(data);
+    }
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+async function dbGetPosts(threadId, limit = 20, beforeId = null) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('posts', 'readonly');
+    const index = transaction.objectStore('posts').index('thread_id');
+    // ID降順で取得
+    const request = index.openCursor(IDBKeyRange.only(Number(threadId)), 'prev');
+    const posts = [];
+    request.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (!cursor) {
+        resolve(posts);
+        return;
+      }
+
+      const post = cursor.value;
+
+      if (beforeId !== null && post.id >= beforeId) {
+        cursor.continue();
+      } else if (posts.length < limit) {
+        posts.push(cursor.value);
+        cursor.continue();
+      } else {
+        resolve(posts);
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function dbGetUsers(uuids) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('users', 'readonly');
+    const store = transaction.objectStore('users');
+    const users = {};
+    let count = 0;
+    if (uuids.length === 0) return resolve({});
+    
+    uuids.forEach(uuid => {
+      const request = store.get(uuid);
+      request.onsuccess = () => {
+        if (request.result) {
+          users[uuid] = request.result.name;
+        }
+        count++;
+        if (count === uuids.length) resolve(users);
+      };
+      request.onerror = () => {
+        count++;
+        if (count === uuids.length) resolve(users);
+      }
+    });
+  });
+}
+
+async function dbGetMaxPostId(threadId) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('posts', 'readonly');
+    const index = transaction.objectStore('posts').index('thread_id');
+    const request = index.openCursor(IDBKeyRange.only(Number(threadId)), 'prev');
+    request.onsuccess = (event) => {
+      const cursor = event.target.result;
+      resolve(cursor ? cursor.value.id : 0);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+// --- End IndexedDB Helper Functions ---
 
 async function init() {
   registerServiceWorker();
@@ -262,27 +375,88 @@ async function loadPosts(isPastLog = false) {
 
   isLoading = true;
   try {
-    const params = {
-      thread_id: currentThreadId,
-      limit: LIMIT
-    };
+    // 過去ログ読み込みの場合
     if (isPastLog && oldestPostId) {
-      params.before_id = oldestPostId;
+      // まずキャッシュを確認
+      const cachedPosts = await dbGetPosts(currentThreadId, LIMIT, oldestPostId);
+      if (cachedPosts.length > 0) {
+        oldestPostId = cachedPosts[cachedPosts.length - 1].id;
+        const userUuids = [...new Set(cachedPosts.map(p => p.user_uuid))];
+        const userMap = await dbGetUsers(userUuids);
+        renderPosts(cachedPosts, isPastLog, userMap);
+        isLoading = false;
+        return;
+      }
+
+      // キャッシュになければAPIコール
+      const data = await apiCall('get_posts', {
+        thread_id: currentThreadId,
+        limit: LIMIT,
+        before_id: oldestPostId
+      });
+      
+      const posts = data.posts || [];
+      const users = data.users || [];
+
+      if (posts.length < LIMIT) hasMorePosts = false;
+      if (posts.length > 0) {
+        // 数値型を保証（IndexedDBの検索キー用）
+        posts.forEach(p => {
+          p.id = Number(p.id);
+          p.thread_id = Number(p.thread_id);
+        });
+        // DB保存
+        await dbPut('posts', posts);
+        await dbPut('users', users);
+        
+        oldestPostId = posts[posts.length - 1].id;
+        
+        // ユーザー名解決用マップ作成
+        const userUuids = [...new Set(posts.map(p => p.user_uuid))];
+        const userMap = await dbGetUsers(userUuids);
+        
+        renderPosts(posts, isPastLog, userMap);
+      }
+      isLoading = false;
+      return;
     }
 
-    const data = await apiCall('get_posts', {
-      ...params
-    });
-
-    const posts = data.posts || [];
-    if (posts.length < LIMIT) {
-      hasMorePosts = false;
+    // 通常ロード（初期表示・更新）
+    // 1. Cache First: DBから表示
+    const cachedPosts = await dbGetPosts(currentThreadId, LIMIT);
+    if (cachedPosts.length > 0) {
+      oldestPostId = cachedPosts[cachedPosts.length - 1].id;
+      const userUuids = [...new Set(cachedPosts.map(p => p.user_uuid))];
+      const userMap = await dbGetUsers(userUuids);
+      renderPosts(cachedPosts, false, userMap);
     }
 
-    if (posts.length > 0) {
-      // ID降順で来るので、最後の要素が一番古い
-      oldestPostId = posts[posts.length - 1].id;
-      renderPosts(posts, isPastLog);
+    // 2. Network Update: 差分取得
+    const maxId = await dbGetMaxPostId(currentThreadId);
+    const apiParams = { thread_id: currentThreadId, limit: 50 }; // 差分は少し多めに取る
+    if (maxId > 0) {
+      apiParams.after_id = maxId;
+    }
+
+    const data = await apiCall('get_posts', apiParams);
+    const newPosts = data.posts || [];
+    const newUsers = data.users || [];
+
+    if (newPosts.length > 0 || newUsers.length > 0) {
+      newPosts.forEach(p => {
+        p.id = Number(p.id);
+        p.thread_id = Number(p.thread_id);
+      });
+      await dbPut('posts', newPosts);
+      await dbPut('users', newUsers);
+
+      // 差分があった場合、最新状態を再描画
+      // (シンプルにするため、DBから最新LIMIT件を取り直して描画)
+      const updatedPosts = await dbGetPosts(currentThreadId, LIMIT);
+      oldestPostId = updatedPosts[updatedPosts.length - 1].id;
+      const userUuids = [...new Set(updatedPosts.map(p => p.user_uuid))];
+      const userMap = await dbGetUsers(userUuids);
+      renderPosts(updatedPosts, false, userMap);
     }
   } catch (error) {
     console.error('Failed to load posts', error);
@@ -291,7 +465,7 @@ async function loadPosts(isPastLog = false) {
   }
 }
 
-function renderPosts(posts, isPastLog) {
+function renderPosts(posts, isPastLog, userMap = {}) {
   const container = document.getElementById('posts-container');
   const myUuid = localStorage.getItem('user_uuid');
   
@@ -319,7 +493,7 @@ function renderPosts(posts, isPastLog) {
 
     const name = document.createElement('div');
     name.className = 'post-name';
-    name.textContent = post.name;
+    name.textContent = userMap[post.user_uuid] || 'Unknown';
 
     const time = document.createElement('div');
     time.className = 'post-time';

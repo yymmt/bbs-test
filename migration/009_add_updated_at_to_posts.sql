@@ -1,0 +1,2 @@
+-- posts テーブルに updated_at カラムを追加（将来の編集機能用）
+ALTER TABLE posts ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;

@@ -10,6 +10,9 @@ Gemini Code Assist 向けの指示テキストです。
   - リファクタリングは積極的に行わないが、リファクタリングが強く推奨される場合は教えて下さい。(コードをすぐに修正するのではなく。)
 - 微調整の指示時:
   - 指定したコード内に「微調整指示」とコメントがある場合、内容に応じて修正してください。リファクタリングやレイアウト修正を想定しています。指示が現実的でない、あるいは大きくデメリットがある場合はその旨返答してください。
+- 方針の相談の時:
+  - ai_context.mdもソースコードも修正しないようにしてください。
+  - 相談内容に応じて、取りうる技術的な手段のバリエーションを提示したり、ソースコードの修正方針などを提示してください。（その場合も直ちにソースコードを修正するのではなく、上記「仕様変更の指示」「コード反映の指示」「微調整の指示」を待ってください。）
 - 共通ルール:
   - Gemini Code Assist が生成したテキストを、こちらで手動修正している場合がありますので、必ず修正対象のファイル内容を読み込み直してから回答生成してください。
 
@@ -71,6 +74,9 @@ SPA (Single Page Application) 構成とする。
 - DB環境: 本番用とテスト用でデータベースを分ける。
 - 認証方式: LocalStorageにUUID (v4) を保存し、リクエストヘッダー (X-USER-ID) で送信することでユーザーを識別する（簡易認証）。
   - 将来対応: 機種変更等に対応するため、引き継ぎコード発行・入力機能の実装を検討する。
+- データキャッシュ: IndexedDBを使用し、投稿データ(posts)とユーザー情報(users)をクライアント側に永続化する。
+  - 投稿データは本文(body)も含めて保存する。
+  - 画面表示時はIndexedDBから即座に描画し、バックグラウンドでAPIから差分を取得して更新する。
 - マイグレーション: SQLファイルを /migration/ に配置し、/admin/migrate.php で管理・実行する。
   - 注意: MySQLのDDLは暗黙的コミットを引き起こすため、マイグレーション実行時はPHP側でのトランザクション制御を行わない。
 - マイグレーション管理: migrates テーブルを作成し、実行済みのSQLファイルは再実行しないように制御する。
@@ -95,6 +101,7 @@ SPA (Single Page Application) 構成とする。
     - PC: 投稿ホバー時に「︙」アイコンを表示し、クリックでメニュー表示。
     - スマホ: 投稿長押しでメニュー表示。
     - メニュー内容: 投稿削除（自身の投稿のみ）。将来的に「いいね」等のスタンプ機能を追加予定。
+    - 将来対応: 投稿編集機能の実装を検討中。postsテーブルのupdated_atカラムを用いて、クライアント側のキャッシュ更新判定を行う想定。
 - 画面構成: SPA構成。ヘッダーには、戻るボタン（左上）、ページタイトル（中央）、ハンバーガーメニュー（右上）を配置。
   - 戻るボタンはスレッド詳細画面でのみ表示する。
   - ハンバーガーメニューで以下の画面を切り替える。スレッド詳細表示時には「Thread Settings」も表示する。
@@ -129,6 +136,7 @@ SPA (Single Page Application) 構成とする。
 - user_uuid: VARCHAR(36) NOT NULL
 - body: TEXT NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 - FOREIGN KEY (thread_id) REFERENCES threads(id)
 
 ## threads テーブル
@@ -180,13 +188,25 @@ SPA (Single Page Application) 構成とする。
 - filename: VARCHAR(255) NOT NULL UNIQUE
 - executed_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 
+## 作成済みマイグレーションファイル一覧
+- 001_create_posts_table.sql
+- 002_remove_password_from_posts.sql
+- 003_add_user_uuid.sql
+- 004_create_users_table.sql
+- 005_fix_collation.sql
+- 006_create_threads_and_transfer.sql
+- 007_create_push_subscriptions.sql
+- 008_create_thread_invites.sql
+- 009_add_updated_at_to_posts.sql
+
 # API仕様 (詳細設計)
 - POST /api.php
   - リクエストヘッダー: `X-USER-ID` にUUIDを含める。
   - action=init_csrf: CSRFトークンを取得。
   - action=get_threads: 参加しているスレッド一覧を取得。
   - action=create_thread: 新規スレッド作成。title必須。
-  - action=get_posts: 指定スレッドの投稿一覧を取得。thread_id, limit, before_idパラメータ対応（カーソルページネーション）。
+  - action=get_posts: 指定スレッドの投稿一覧を取得。thread_id, limit, before_id（過去ログ）, after_id（差分取得）パラメータ対応。
+    - レスポンス: 投稿リスト(posts)と、それに関連するユーザー情報(users)を分離して返す（サイドローディング）。
   - action=get_thread_settings: `thread_id`必須。スレッド名、参加メンバー、招待可能メンバーの一覧を取得。
   - action=create_post: 指定スレッドに投稿。thread_id, body必須。
   - action=delete_post: 投稿削除。id必須。
