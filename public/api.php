@@ -51,6 +51,7 @@ try {
         $thread_id = isset($input['thread_id']) ? (int)$input['thread_id'] : 0;
         $limit = isset($input['limit']) ? (int)$input['limit'] : 10;
         $before_id = isset($input['before_id']) ? (int)$input['before_id'] : 0;
+        $after_id = isset($input['after_id']) ? (int)$input['after_id'] : 0;
 
         if (empty($thread_id)) {
             throw new Exception('Thread ID is required');
@@ -65,10 +66,13 @@ try {
             exit;
         }
 
-        // usersテーブルと結合して名前を取得
-        $sql = "SELECT p.id, u.name, p.body, p.user_uuid, p.created_at FROM posts p LEFT JOIN users u ON p.user_uuid = u.user_uuid WHERE p.thread_id = :thread_id";
+        // usersテーブルとのJOINを廃止し、postsのみ取得
+        $sql = "SELECT id, thread_id, user_uuid, body, created_at FROM posts WHERE thread_id = :thread_id";
         if ($before_id > 0) {
-            $sql .= " AND p.id < :before_id";
+            $sql .= " AND id < :before_id";
+        }
+        if ($after_id > 0) {
+            $sql .= " AND id > :after_id";
         }
         $sql .= " ORDER BY p.id DESC LIMIT :limit";
 
@@ -77,9 +81,26 @@ try {
         if ($before_id > 0) {
             $stmt->bindValue(':before_id', $before_id, PDO::PARAM_INT);
         }
+        if ($after_id > 0) {
+            $stmt->bindValue(':after_id', $after_id, PDO::PARAM_INT);
+        }
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
-        echo json_encode(['posts' => $stmt->fetchAll()]);
+        $posts = $stmt->fetchAll();
+
+        // 関連するユーザー情報を取得 (サイドローディング)
+        $users = [];
+        if (!empty($posts)) {
+            $userIds = array_unique(array_column($posts, 'user_uuid'));
+            if (!empty($userIds)) {
+                $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+                $stmt = $pdo->prepare("SELECT user_uuid, name FROM users WHERE user_uuid IN ($placeholders)");
+                $stmt->execute(array_values($userIds));
+                $users = $stmt->fetchAll();
+            }
+        }
+
+        echo json_encode(['posts' => $posts, 'users' => $users]);
 
     } elseif ($action === 'create_post') {
         if (empty($input['body']) || empty($input['thread_id']) || empty($user_uuid)) {
