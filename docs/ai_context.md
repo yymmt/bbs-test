@@ -101,6 +101,7 @@ SPA (Single Page Application) 構成とする。
     - PC: 投稿ホバー時に「︙」アイコンを表示し、クリックでメニュー表示。
     - スマホ: 投稿長押しでメニュー表示。
     - メニュー内容: 投稿削除（自身の投稿のみ）。将来的に「いいね」等のスタンプ機能を追加予定。
+    - 将来対応: 投稿編集機能の実装を検討中。postsテーブルのupdated_atカラムを用いて、クライアント側のキャッシュ更新判定を行う想定。
 - 画面構成: SPA構成。ヘッダーには、戻るボタン（左上）、ページタイトル（中央）、ハンバーガーメニュー（右上）を配置。
   - 戻るボタンはスレッド詳細画面でのみ表示する。
   - ハンバーガーメニューで以下の画面を切り替える。スレッド詳細表示時には「Thread Settings」も表示する。
@@ -135,6 +136,7 @@ SPA (Single Page Application) 構成とする。
 - user_uuid: VARCHAR(36) NOT NULL
 - body: TEXT NOT NULL
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 - FOREIGN KEY (thread_id) REFERENCES threads(id)
 
 ## threads テーブル
@@ -185,6 +187,17 @@ SPA (Single Page Application) 構成とする。
 - id: INT AUTO_INCREMENT PRIMARY KEY
 - filename: VARCHAR(255) NOT NULL UNIQUE
 - executed_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+
+## 作成済みマイグレーションファイル一覧
+- 001_create_posts_table.sql
+- 002_remove_password_from_posts.sql
+- 003_add_user_uuid.sql
+- 004_create_users_table.sql
+- 005_fix_collation.sql
+- 006_create_threads_and_transfer.sql
+- 007_create_push_subscriptions.sql
+- 008_create_thread_invites.sql
+- 009_add_updated_at_to_posts.sql
 
 # API仕様 (詳細設計)
 - POST /api.php
