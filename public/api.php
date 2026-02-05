@@ -67,7 +67,7 @@ try {
         }
 
         // usersテーブルとのJOINを廃止し、postsのみ取得
-        $sql = "SELECT id, thread_id, user_uuid, body, created_at FROM posts WHERE thread_id = :thread_id";
+        $sql = "SELECT id, thread_id, user_uuid, body, created_at FROM posts WHERE thread_id = :thread_id AND deleted_at IS NULL";
         if ($before_id > 0) {
             $sql .= " AND id < :before_id";
         }
@@ -160,6 +160,9 @@ try {
                 $threadTitle = $stmt->fetchColumn();
 
                 $payload = json_encode([
+                    'type' => 'create',
+                    'thread_id' => $thread_id,
+                    'post_id' => $pdo->lastInsertId(),
                     'title' => "New post in {$threadTitle}",
                     'body' => mb_substr($input['body'], 0, 50) . (mb_strlen($input['body']) > 50 ? '...' : ''),
                     'url' => "index.html?thread_id={$thread_id}",
@@ -239,15 +242,71 @@ try {
         if (empty($input['id']) || empty($user_uuid)) {
             throw new Exception('Missing required fields');
         }
-        // 自身の投稿のみ削除可能
-        $stmt = $pdo->prepare("DELETE FROM posts WHERE id = ? AND user_uuid = ?");
-        $stmt->execute([$input['id'], $user_uuid]);
         
-        if ($stmt->rowCount() > 0) {
-            echo json_encode(['success' => true]);
-        } else {
+        // 投稿の存在確認とthread_id取得（自身の投稿であることも確認）
+        $stmt = $pdo->prepare("SELECT thread_id FROM posts WHERE id = ? AND user_uuid = ?");
+        $stmt->execute([$input['id'], $user_uuid]);
+        $post = $stmt->fetch();
+        
+        if (!$post) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid id or permission denied']);
+            exit;
+        }
+        
+        $thread_id = $post['thread_id'];
+
+        // 論理削除
+        $stmt = $pdo->prepare("UPDATE posts SET deleted_at = NOW() WHERE id = ?");
+        $stmt->execute([$input['id']]);
+        
+        // 通知送信処理
+        if (isset($config['web_push'])) {
+            // スレッド参加者（自分以外）の購読情報を取得
+            $stmt = $pdo->prepare("
+                SELECT ps.endpoint, ps.public_key, ps.auth_token 
+                FROM thread_users tu
+                JOIN push_subscriptions ps ON tu.user_uuid = ps.user_uuid
+                WHERE tu.thread_id = ? AND tu.user_uuid != ?
+            ");
+            $stmt->execute([$thread_id, $user_uuid]);
+            $subscriptions = $stmt->fetchAll();
+
+            if ($subscriptions) {
+                $auth = [
+                    'VAPID' => [
+                        'subject' => $config['web_push']['subject'],
+                        'publicKey' => $config['web_push']['public_key'],
+                        'privateKey' => $config['web_push']['private_key'],
+                    ],
+                ];
+                $webPush = new WebPush($auth);
+
+                $payload = json_encode([
+                    'type' => 'delete',
+                    'thread_id' => $thread_id,
+                    'post_id' => $input['id'],
+                ]);
+
+                foreach ($subscriptions as $sub) {
+                    $subscription = Subscription::create([
+                        'endpoint' => $sub['endpoint'],
+                        'publicKey' => $sub['public_key'],
+                        'authToken' => $sub['auth_token'],
+                    ]);
+                    $webPush->queueNotification($subscription, $payload);
+                }
+                
+                $report = $webPush->flush();
+                // エラーハンドリング（期限切れ削除など）はcreate_postと同様に行うが、ここでは省略
+            }
+        }
+
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'get_user') {
+        $stmt = $pdo->prepare("SELECT name FROM users WHERE user_uuid = ?");
+        $stmt->execute([$user_uuid]);
         }
 
     } elseif ($action === 'get_user') {
