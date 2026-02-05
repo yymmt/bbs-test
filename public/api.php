@@ -74,7 +74,7 @@ try {
         if ($after_id > 0) {
             $sql .= " AND id > :after_id";
         }
-        $sql .= " ORDER BY p.id DESC LIMIT :limit";
+        $sql .= " ORDER BY id DESC LIMIT :limit";
 
         $stmt = $pdo->prepare($sql);
         $stmt->bindValue(':thread_id', $thread_id, PDO::PARAM_INT);
