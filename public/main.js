@@ -1,4 +1,4 @@
-const APP_VERSION = 'v19';
+const APP_VERSION = 'v20';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -157,14 +157,26 @@ async function init() {
   
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', event => {
-      const data = event.data;
-      if (data.thread_id && data.thread_id == currentThreadId) {
-        if (data.type === 'create') {
-          loadPosts(false);
-        } else if (data.type === 'delete') {
-          dbDelete('posts', Number(data.post_id)).then(() => {
-             loadPosts(false);
-          });
+      const message = event.data;
+      if (message.action === 'check_thread') {
+        const data = message.payload;
+        // スレッドIDが一致し、かつ画面が表示されているか判定
+        const isOpen = (currentThreadId && data.thread_id == currentThreadId && !document.hidden);
+        
+        // SWに応答を返す
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ isOpen: isOpen });
+        }
+
+        // 開いている場合は画面更新
+        if (isOpen) {
+          if (data.type === 'create') {
+            loadPosts(false);
+          } else if (data.type === 'delete') {
+            dbDelete('posts', Number(data.post_id)).then(() => {
+               loadPosts(false);
+            });
+          }
         }
       }
     });

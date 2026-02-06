@@ -1,9 +1,9 @@
-const CACHE_NAME = 'bbs-cache-v19';
+const CACHE_NAME = 'bbs-cache-v20';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=19',
-  './main.js?v=19',
+  './style.css?v=20',
+  './main.js?v=20',
   'https://unpkg.com/ress@4.0.0/dist/ress.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap',
@@ -50,27 +50,36 @@ self.addEventListener('push', event => {
     type: 'window',
     includeUncontrolled: true
   }).then(windowClients => {
-    let isThreadOpen = false;
-    
-    for (let client of windowClients) {
-      const url = new URL(client.url);
-      const clientThreadId = url.searchParams.get('thread_id');
-      
-      if (client.visibilityState === 'visible' && clientThreadId == data.thread_id) {
-        client.postMessage(data);
-        isThreadOpen = true;
+    // 各クライアントに現在の状態を問い合わせる
+    const checks = windowClients.map(client => {
+      return new Promise(resolve => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = (e) => {
+          resolve(e.data.isOpen);
+        };
+        // タイムアウト（念のため）
+        setTimeout(() => resolve(false), 400);
+        
+        client.postMessage({
+          action: 'check_thread',
+          payload: data
+        }, [channel.port2]);
+      });
+    });
+
+    return Promise.all(checks).then(results => {
+      const isThreadOpen = results.some(r => r === true);
+
+      if (!isThreadOpen && data.type !== 'delete') {
+        const title = data.title || 'New Notification';
+        const options = {
+          body: data.body || '',
+          icon: data.icon || 'images/icons/icon.png',
+          data: { url: data.url || './' }
+        };
+        return self.registration.showNotification(title, options);
       }
-    }
-    
-    if (!isThreadOpen && data.type !== 'delete') {
-      const title = data.title || 'New Notification';
-      const options = {
-        body: data.body || '',
-        icon: data.icon || 'images/icons/icon.png',
-        data: { url: data.url || './' }
-      };
-      return self.registration.showNotification(title, options);
-    }
+    });
   });
 
   event.waitUntil(promiseChain);
