@@ -238,6 +238,19 @@ try {
         $stmt->execute([$user_uuid, $input['name']]);
         echo json_encode(['success' => true]);
 
+    } elseif ($action === 'generate_transfer_code') {
+        if (empty($user_uuid)) {
+            throw new Exception('User UUID required');
+        }
+        // 数字6桁のコード生成
+        $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $expire_at = date('Y-m-d H:i:s', strtotime('+10 minutes')); // 10分間有効
+
+        $stmt = $pdo->prepare("INSERT INTO transfer_codes (user_uuid, code, expire_at) VALUES (?, ?, ?)");
+        $stmt->execute([$user_uuid, $code, $expire_at]);
+
+        echo json_encode(['success' => true, 'code' => $code, 'expire_at' => $expire_at]);
+
     } elseif ($action === 'check_transfer_code') {
         if (empty($input['code'])) {
             throw new Exception('Code is required');

@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/ress@4.0.0/dist/ress.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="style.css?v=20">
-    <link rel="manifest" href="manifest.json?v=20">
+    <link rel="stylesheet" href="style.css?v=21">
+    <link rel="manifest" href="manifest.json?v=21">
     <link rel="apple-touch-icon" href="images/icons/icon.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -33,7 +33,7 @@
         <div id="welcome-view" class="hidden">
             <section class="welcome-section">
                 <h2>Simple BBSへようこそ</h2>
-                <p>この端末で初めてのアクセスです。<br>初めて利用する方はユーザ名を設定してください。</p>
+                <p>初めて利用する方はユーザ名を設定してください。</p>
                 <form id="register-form">
                     <div class="form-group">
                         <label for="reg-username">User Name</label>
@@ -42,17 +42,15 @@
                     <button type="submit">OK</button>
                 </form>
 
-                <!-- 将来対応につき現在は非表示
                 <hr class="divider">
-                <p>他の端末でも利用している方は、引き継ぎコードがあれば設定を引き継ぐことができます。</p>
+                <p>以前利用していた方は、引き継ぎコードがあれば設定を引き継ぐことができます。</p>
                 <form id="transfer-form">
                     <div class="form-group">
                         <label for="transfer-code">Transfer Code</label>
-                        <input type="text" id="transfer-code" name="code" placeholder="Enter transfer code">
+                        <input type="text" id="transfer-code" name="code" placeholder="Enter transfer code" inputmode="numeric" pattern="\d*">
                     </div>
                     <button type="submit">OK</button>
                 </form>
-                -->
             </section>
         </div>
 
@@ -66,6 +64,15 @@
                     </div>
                 </form>
                 <div id="app-version" class="app-version"></div>
+
+                <hr class="divider">
+                <h3>Data Transfer</h3>
+                <p>Issue a transfer code to move your data to another device.</p>
+                <button id="issue-transfer-code-btn" class="secondary-btn" type="button">Issue Transfer Code</button>
+                <div id="transfer-code-display" class="hidden" style="margin-top: 1rem; padding: 1rem; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
+                    <p style="margin: 0;">Code: <strong id="transfer-code-value" style="font-size: 1.5em; letter-spacing: 2px;"></strong></p>
+                    <p style="margin: 0.5rem 0 0; font-size: 0.85rem; color: #666;">Expires at: <span id="transfer-code-expiry"></span></p>
+                </div>
             </section>
         </div>
 
@@ -123,6 +130,6 @@
             </section>
         </div>
     </main>
-    <script src="main.js?v=20"></script>
+    <script src="main.js?v=21"></script>
 </body>
 </html>

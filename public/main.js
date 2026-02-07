@@ -1,4 +1,4 @@
-const APP_VERSION = 'v20';
+const APP_VERSION = 'v21';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -199,10 +199,11 @@ async function init() {
   }
 
   document.getElementById('register-form').addEventListener('submit', handleRegister);
-  // document.getElementById('transfer-form').addEventListener('submit', handleTransfer); // 引き継ぎコードについて、将来対応につきコメントアウト
+  document.getElementById('transfer-form').addEventListener('submit', handleTransfer);
   document.getElementById('thread-form').addEventListener('submit', handleCreateThread);
   document.getElementById('post-form').addEventListener('submit', handlePostSubmit);
   document.getElementById('user-form').addEventListener('submit', handleUserUpdate);
+  document.getElementById('issue-transfer-code-btn').addEventListener('click', handleIssueTransferCode);
   document.getElementById('thread-rename-form').addEventListener('submit', handleUpdateThreadTitle);
 
   // スクロールイベント監視（無限スクロール）
@@ -371,6 +372,22 @@ async function handleTransfer(e) {
     }
   } catch (error) {
     console.error('Transfer failed', error);
+  }
+}
+
+async function handleIssueTransferCode() {
+  try {
+    const data = await apiCall('generate_transfer_code');
+    if (data.success) {
+      const display = document.getElementById('transfer-code-display');
+      document.getElementById('transfer-code-value').textContent = data.code;
+      document.getElementById('transfer-code-expiry').textContent = data.expire_at;
+      display.classList.remove('hidden');
+    } else {
+      alert('Error: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Issue transfer code failed', error);
   }
 }
 
