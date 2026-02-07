@@ -91,6 +91,10 @@ body {
     border-top: 1px solid #eee;
 }
 
+.install-guide-text {
+    margin-top: 1rem;
+}
+
 /* Thread List */
 .thread-item {
     padding: 1rem 0;

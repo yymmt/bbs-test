@@ -1,4 +1,4 @@
-const APP_VERSION = 'v21';
+const APP_VERSION = 'v22';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -9,9 +9,16 @@ let threads = [];
 let oldestPostId = null;
 let isLoading = false;
 let hasMorePosts = true;
+let deferredPrompt = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
+});
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  checkInstallPromotion();
 });
 
 // --- IndexedDB Helper Functions ---
@@ -204,6 +211,7 @@ async function init() {
   document.getElementById('post-form').addEventListener('submit', handlePostSubmit);
   document.getElementById('user-form').addEventListener('submit', handleUserUpdate);
   document.getElementById('issue-transfer-code-btn').addEventListener('click', handleIssueTransferCode);
+  document.getElementById('install-btn').addEventListener('click', handleInstallClick);
   document.getElementById('thread-rename-form').addEventListener('submit', handleUpdateThreadTitle);
 
   // スクロールイベント監視（無限スクロール）
@@ -228,6 +236,8 @@ async function init() {
       closeAllMenus();
     }
   });
+
+  checkInstallPromotion();
 }
 
 async function handleRouting() {
@@ -388,6 +398,44 @@ async function handleIssueTransferCode() {
     }
   } catch (error) {
     console.error('Issue transfer code failed', error);
+  }
+}
+
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+}
+
+function isStandalone() {
+  return (window.matchMedia('(display-mode: standalone)').matches) || (window.navigator.standalone) || document.referrer.includes('android-app://');
+}
+
+function checkInstallPromotion() {
+  if (isStandalone()) return;
+
+  const promotionContainer = document.getElementById('install-promotion');
+  const promptContainer = document.getElementById('install-prompt-container');
+  const iosContainer = document.getElementById('ios-install-guide');
+  
+  if (!promotionContainer || !promptContainer || !iosContainer) return;
+
+  if (isIOS()) {
+    promotionContainer.classList.remove('hidden');
+    iosContainer.classList.remove('hidden');
+    promptContainer.classList.add('hidden');
+  } else if (deferredPrompt) {
+    promotionContainer.classList.remove('hidden');
+    promptContainer.classList.remove('hidden');
+    iosContainer.classList.add('hidden');
+  }
+}
+
+async function handleInstallClick() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  if (outcome === 'accepted') {
+    document.getElementById('install-promotion').classList.add('hidden');
   }
 }
 
