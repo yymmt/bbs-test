@@ -53,15 +53,8 @@ body {
     border-top: 1px solid #eee;
 }
 
+/* --- Form Elements --- */
 .form-group {
-}
-
-#post-form {
-	display: grid;
-	grid-template-columns: 1fr 30px;
-	grid-template-areas:
-		"text send-button";
-	gap: 0.5rem;
 }
 
 .form-group label {
@@ -81,6 +74,33 @@ body {
     vertical-align: bottom;
 }
 
+.language-switcher {
+    margin-bottom: 1rem;
+}
+
+.radio-button-container {
+    display: flex;
+    gap: 0px 20px;
+    flex-wrap: wrap;
+}
+
+.radio-button-container label {
+    display: inline-flex;
+    gap: 10px;
+    align-items: center;
+}
+.radio-button-container label input {
+    width: auto;
+}
+
+#post-form {
+    display: grid;
+    grid-template-columns: 1fr 30px;
+    grid-template-areas:
+        "text send-button";
+    gap: 0.5rem;
+}
+
 /* Welcome View */
 .welcome-section {
     text-align: center;
@@ -89,6 +109,10 @@ body {
     margin: 2rem 0;
     border: 0;
     border-top: 1px solid #eee;
+}
+
+.install-guide-text {
+    margin-top: 1rem;
 }
 
 /* Thread List */
@@ -116,18 +140,18 @@ body {
 }
 
 .post-item.same-user {
-	grid-template-rows: auto;
-	grid-template-columns: 50px fit-content(calc(100% - 90px)) 1fr;
-	max-width: 90%;
-	grid-template-areas: "icon body time";
+    grid-template-rows: auto;
+    grid-template-columns: 50px fit-content(calc(100% - 90px)) 1fr;
+    max-width: 90%;
+    grid-template-areas: "icon body time";
 }
 
 .post-item.my-post {
-	grid-template-areas: "time body";
-	grid-template-rows: auto;
-	grid-template-columns: 1fr fit-content(calc(100% - 90px));
-	margin-left: auto;
-	justify-content: end;
+    grid-template-areas: "time body";
+    grid-template-rows: auto;
+    grid-template-columns: 1fr fit-content(calc(100% - 90px));
+    margin-left: auto;
+    justify-content: end;
 }
 
 @media (hover: hover) {
@@ -137,16 +161,16 @@ body {
 }
 
 .my-post .post-icon {
-	display: none;
+    display: none;
 }
 .my-post .post-name {
-	display: none;
+    display: none;
 }
 .same-user .post-icon {
-	display: none;
+    display: none;
 }
 .same-user .post-name {
-	display: none;
+    display: none;
 }
 
 .post-name {
@@ -173,7 +197,7 @@ body {
 }
 
 .my-post .post-time {
-	justify-self: end;
+    justify-self: end;
 }
 
 .post-body {
@@ -340,6 +364,20 @@ button:disabled {
     text-align: center;
     color: #999;
     font-size: 0.8rem;
+}
+
+/* User Settings */
+.transfer-code-display {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.transfer-code-display strong {
+    font-size: 1.5em;
+    letter-spacing: 2px;
 }
 
 /* Thread Settings */

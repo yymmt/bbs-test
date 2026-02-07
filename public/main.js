@@ -1,4 +1,4 @@
-const APP_VERSION = 'v19';
+const APP_VERSION = 'v24';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -9,9 +9,86 @@ let threads = [];
 let oldestPostId = null;
 let isLoading = false;
 let hasMorePosts = true;
+let deferredPrompt = null;
+let currentLang = localStorage.getItem('lang') || 'ja';
+
+// 微調整指示: 見出し「言語選択」を追加。data-i18n対応。
+const TRANSLATIONS = {
+  // UI
+  'app-title': { ja: 'Simple BBS', en: 'Simple BBS' },
+  'welcome-title': { ja: 'Simple BBSへようこそ', en: 'Welcome to Simple BBS' },
+  'welcome-text': { ja: '初めて利用する方はユーザ名を設定してください。', en: 'Please set your username to start.' },
+  'label-language': { ja: '言語選択', en: 'Language' },
+  'label-user-name': { ja: 'ユーザー名', en: 'User Name' },
+  'placeholder-enter-name': { ja: '名前を入力', en: 'Enter your name' },
+  'btn-ok': { ja: 'OK', en: 'OK' },
+  'text-transfer-hint': { ja: '以前利用していた方は、引き継ぎコードがあれば設定を引き継ぐことができます。', en: 'If you have a transfer code, you can restore your settings.' },
+  'label-transfer-code': { ja: '引き継ぎコード', en: 'Transfer Code' },
+  'placeholder-enter-code': { ja: 'コードを入力', en: 'Enter transfer code' },
+  'text-install-prompt': { ja: 'ホーム画面にアイコンを追加することができます。', en: 'You can add this app to your home screen.' },
+  'btn-install': { ja: 'アプリのインストール', en: 'Install App' },
+  'text-ios-guide': { ja: '画面下部の <i class="bi bi-box-arrow-up"></i> から、「ホーム画面に追加」をタップしてください。', en: 'Tap <i class="bi bi-box-arrow-up"></i> at the bottom and select "Add to Home Screen".' },
+  
+  'menu-threads': { ja: 'スレッド一覧', en: 'Threads' },
+  'menu-user-settings': { ja: 'ユーザー設定', en: 'User Settings' },
+  'menu-thread-settings': { ja: 'スレッド設定', en: 'Thread Settings' },
+  
+  'label-your-name': { ja: 'あなたの名前', en: 'Your Name' },
+  'btn-save-name': { ja: '名前を保存', en: 'Save Name' },
+  'header-data-transfer': { ja: 'データ引き継ぎ', en: 'Data Transfer' },
+  'text-issue-transfer-code': { ja: '機種変更などのために引き継ぎコードを発行します。', en: 'Issue a transfer code to move your data to another device.' },
+  'btn-issue-transfer-code': { ja: '引き継ぎコード発行', en: 'Issue Transfer Code' },
+  'label-code': { ja: 'コード:', en: 'Code:' },
+  'label-expires-at': { ja: '有効期限:', en: 'Expires at:' },
+  
+  'placeholder-create-thread': { ja: '新しいスレッドを作成', en: 'Create New Thread' },
+  
+  'header-thread-settings': { ja: 'スレッド設定', en: 'Thread Settings' },
+  'label-thread-name': { ja: 'スレッド名', en: 'Thread Name' },
+  'btn-rename': { ja: '変更', en: 'Rename' },
+  'header-members': { ja: '参加メンバー', en: 'Members' },
+  'header-add-members': { ja: 'メンバー追加', en: 'Add Members' },
+  'header-invite-qr': { ja: 'QRコード招待', en: 'Invite via QR Code' },
+  
+  'placeholder-type-message': { ja: 'メッセージを入力...', en: 'Type a message...' },
+  
+  'btn-delete': { ja: '削除', en: 'Delete' },
+  'msg-no-threads': { ja: 'スレッドが見つかりません。新規作成するか、招待を受けてください。', en: 'No threads found. Create a new one or ask for an invitation.' },
+  'msg-no-candidates': { ja: '候補がいません。', en: 'No candidates found.' },
+
+  // JS Messages
+  'msg-confirm-delete': { ja: '本当に削除しますか？', en: 'Are you sure you want to delete this post?' },
+  'msg-name-updated': { ja: '名前を更新しました！', en: 'Name updated!' },
+  'msg-title-updated': { ja: 'スレッド名を更新しました。', en: 'Thread title updated.' },
+  'msg-joined': { ja: 'スレッドに参加しました！', en: 'Joined thread successfully!' },
+  'msg-remove-member': { ja: 'このメンバーを削除しますか？', en: 'Remove this member?' },
+
+  // Errors (API codes)
+  'error_invalid_csrf_token': { ja: '不正なCSRFトークンです。', en: 'Invalid CSRF token' },
+  'error_thread_id_required': { ja: 'スレッドIDが必要です。', en: 'Thread ID is required' },
+  'error_access_denied': { ja: 'このスレッドへのアクセス権がありません。', en: 'Access denied to this thread' },
+  'error_missing_fields': { ja: '必須項目が不足しています。', en: 'Missing required fields' },
+  'error_invalid_id_or_permission': { ja: '無効なIDか、権限がありません。', en: 'Invalid id or permission denied' },
+  'error_user_uuid_required': { ja: 'ユーザーUUIDが必要です。', en: 'User UUID required' },
+  'error_code_required': { ja: 'コードが必要です。', en: 'Code is required' },
+  'error_invalid_code': { ja: 'コードが無効か期限切れです。', en: 'Invalid or expired code' },
+  'error_thread_not_found': { ja: 'スレッドが見つかりません。', en: 'Thread not found' },
+  'error_invalid_input': { ja: '入力が無効です。', en: 'Invalid input' },
+  'error_permission_denied': { ja: '権限がありません。', en: 'Permission denied' },
+  'error_invalid_token': { ja: 'トークンが無効か期限切れです。', en: 'Invalid or expired token' },
+  'error_invalid_action': { ja: '無効な操作です。', en: 'Invalid action' },
+  'error_internal_server_error': { ja: 'サーバーエラーが発生しました。', en: 'Internal Server Error' },
+  'unknown_error': { ja: '不明なエラーが発生しました。', en: 'Unknown error' }
+};
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
+});
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  checkInstallPromotion();
 });
 
 // --- IndexedDB Helper Functions ---
@@ -157,14 +234,26 @@ async function init() {
   
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', event => {
-      const data = event.data;
-      if (data.thread_id && data.thread_id == currentThreadId) {
-        if (data.type === 'create') {
-          loadPosts(false);
-        } else if (data.type === 'delete') {
-          dbDelete('posts', Number(data.post_id)).then(() => {
-             loadPosts(false);
-          });
+      const message = event.data;
+      if (message.action === 'check_thread') {
+        const data = message.payload;
+        // スレッドIDが一致し、かつ画面が表示されているか判定
+        const isOpen = (currentThreadId && data.thread_id == currentThreadId && !document.hidden);
+        
+        // SWに応答を返す
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ isOpen: isOpen });
+        }
+
+        // 開いている場合は画面更新
+        if (isOpen) {
+          if (data.type === 'create') {
+            loadPosts(false);
+          } else if (data.type === 'delete') {
+            dbDelete('posts', Number(data.post_id)).then(() => {
+               loadPosts(false);
+            });
+          }
         }
       }
     });
@@ -187,10 +276,12 @@ async function init() {
   }
 
   document.getElementById('register-form').addEventListener('submit', handleRegister);
-  // document.getElementById('transfer-form').addEventListener('submit', handleTransfer); // 引き継ぎコードについて、将来対応につきコメントアウト
+  document.getElementById('transfer-form').addEventListener('submit', handleTransfer);
   document.getElementById('thread-form').addEventListener('submit', handleCreateThread);
   document.getElementById('post-form').addEventListener('submit', handlePostSubmit);
   document.getElementById('user-form').addEventListener('submit', handleUserUpdate);
+  document.getElementById('issue-transfer-code-btn').addEventListener('click', handleIssueTransferCode);
+  document.getElementById('install-btn').addEventListener('click', handleInstallClick);
   document.getElementById('thread-rename-form').addEventListener('submit', handleUpdateThreadTitle);
 
   // スクロールイベント監視（無限スクロール）
@@ -215,6 +306,17 @@ async function init() {
       closeAllMenus();
     }
   });
+
+  checkInstallPromotion();
+  
+  // 言語切り替え
+  document.querySelectorAll('input[name="lang"]').forEach(radio => {
+    if (radio.value === currentLang) radio.checked = true;
+    radio.addEventListener('change', (e) => {
+      setLanguage(e.target.value);
+    });
+  });
+  updateTranslations();
 }
 
 async function handleRouting() {
@@ -333,7 +435,7 @@ async function handleRegister(e) {
       await loadThreads();
       handleRouting(); // URLパラメータがあればそれに従う
     } else {
-      alert('Registration failed: ' + (data.error || 'Unknown error'));
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Registration failed', error);
@@ -355,10 +457,64 @@ async function handleTransfer(e) {
       await loadThreads();
       handleRouting();
     } else {
-      alert('Transfer failed: ' + (data.error || 'Invalid code'));
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Transfer failed', error);
+  }
+}
+
+async function handleIssueTransferCode() {
+  try {
+    const data = await apiCall('generate_transfer_code');
+    if (data.success) {
+      const display = document.getElementById('transfer-code-display');
+      document.getElementById('transfer-code-value').textContent = data.code;
+      document.getElementById('transfer-code-expiry').textContent = data.expire_at;
+      display.classList.remove('hidden');
+    } else {
+      alert(t(data.error) || data.error);
+    }
+  } catch (error) {
+    console.error('Issue transfer code failed', error);
+  }
+}
+
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+}
+
+function isStandalone() {
+  return (window.matchMedia('(display-mode: standalone)').matches) || (window.navigator.standalone) || document.referrer.includes('android-app://');
+}
+
+function checkInstallPromotion() {
+  if (isStandalone()) return;
+
+  const promotionContainer = document.getElementById('install-promotion');
+  const promptContainer = document.getElementById('install-prompt-container');
+  const iosContainer = document.getElementById('ios-install-guide');
+  
+  if (!promotionContainer || !promptContainer || !iosContainer) return;
+
+  if (isIOS()) {
+    promotionContainer.classList.remove('hidden');
+    iosContainer.classList.remove('hidden');
+    promptContainer.classList.add('hidden');
+  } else if (deferredPrompt) {
+    promotionContainer.classList.remove('hidden');
+    promptContainer.classList.remove('hidden');
+    iosContainer.classList.add('hidden');
+  }
+}
+
+async function handleInstallClick() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  if (outcome === 'accepted') {
+    document.getElementById('install-promotion').classList.add('hidden');
   }
 }
 
@@ -380,7 +536,7 @@ function renderThreads(threads) {
 
   if (threads.length === 0) {
     const p = document.createElement('p');
-    p.textContent = 'No threads found. Create a new one or ask for an invitation.';
+    p.textContent = t('msg-no-threads');
     p.style.color = '#666';
     p.style.textAlign = 'center';
     container.appendChild(p);
@@ -566,7 +722,7 @@ function renderPosts(posts, isPastLog, userMap = {}) {
       
       const deleteBtn = document.createElement('button');
       deleteBtn.className = 'delete-btn';
-      deleteBtn.innerHTML = '<i class="bi bi-trash"></i> Delete';
+      deleteBtn.innerHTML = `<i class="bi bi-trash"></i> ${t('btn-delete')}`;
       deleteBtn.onclick = () => handleDelete(post.id);
       
       menuDiv.appendChild(deleteBtn);
@@ -656,7 +812,7 @@ async function handleCreateThread(e) {
       form.reset();
       loadThreads();
     } else {
-      alert('Error: ' + (data.error || 'Unknown error'));
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Create thread failed', error);
@@ -677,7 +833,7 @@ async function handlePostSubmit(e) {
       hasMorePosts = true;
       loadPosts(false);
     } else {
-      alert('Error: ' + (data.error || 'Unknown error'));
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Post failed', error);
@@ -692,10 +848,10 @@ async function handleUserUpdate(e) {
   try {
     const data = await apiCall('update_user', { name });
     if (data.success) {
-      alert('Name updated!');
+      alert(t('msg-name-updated'));
       if (currentThreadId) loadPosts(false);
     } else {
-      alert('Error: ' + (data.error || 'Unknown error'));
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Update user failed', error);
@@ -703,7 +859,7 @@ async function handleUserUpdate(e) {
 }
 
 async function handleDelete(id) {
-  if (!confirm('Are you sure you want to delete this post?')) return;
+  if (!confirm(t('msg-confirm-delete'))) return;
 
   try {
     const data = await apiCall('delete_post', { id });
@@ -712,7 +868,7 @@ async function handleDelete(id) {
       await dbDelete('posts', id);
       loadPosts(false); // 削除後もリロード
     } else {
-      alert('Error: ' + (data.error || 'Delete failed'));
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Delete failed', error);
@@ -758,11 +914,11 @@ function showView(viewId) {
 
   // --- UI要素の表示/非表示とタイトルをデータ駆動で管理 ---
   const viewConfig = {
-    'welcome-view':         { showHeader: false, showBackBtn: false, showThreadSettings: false, title: '' },
-    'thread-list-view':     { showHeader: true,  showBackBtn: false, showThreadSettings: false, title: 'Simple BBS' },
-    'thread-detail-view':   { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  title: currentThreadTitle },
-    'settings-view':        { showHeader: true,  showBackBtn: false, showThreadSettings: false, title: 'User Settings' },
-    'thread-settings-view': { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  title: 'Thread Settings' },
+    'welcome-view':         { showHeader: false, showBackBtn: false, showThreadSettings: false, titleKey: '' },
+    'thread-list-view':     { showHeader: true,  showBackBtn: false, showThreadSettings: false, titleKey: 'app-title' },
+    'thread-detail-view':   { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  titleKey: null }, // dynamic
+    'settings-view':        { showHeader: true,  showBackBtn: false, showThreadSettings: false, titleKey: 'menu-user-settings' },
+    'thread-settings-view': { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  titleKey: 'menu-thread-settings' },
   };
 
   const config = viewConfig[viewId];
@@ -777,7 +933,13 @@ function showView(viewId) {
 
   // ページタイトル
   const pageTitle = document.getElementById('page-title');
-  pageTitle.textContent = config.title;
+  if (config.titleKey) {
+    pageTitle.setAttribute('data-i18n', config.titleKey);
+    pageTitle.textContent = t(config.titleKey);
+  } else {
+    pageTitle.removeAttribute('data-i18n');
+    pageTitle.textContent = currentThreadTitle;
+  }
 
   // --- 各ビューに固有の処理 ---
   if (viewId === 'settings-view') {
@@ -826,7 +988,7 @@ function renderThreadSettings(data) {
   const candidateList = document.getElementById('candidate-list');
   candidateList.innerHTML = '';
   if (data.candidates.length === 0) {
-    candidateList.textContent = 'No candidates found.';
+    candidateList.textContent = t('msg-no-candidates');
   } else {
     data.candidates.forEach(user => {
       const div = document.createElement('div');
@@ -853,9 +1015,9 @@ async function handleUpdateThreadTitle(e) {
     const data = await apiCall('update_thread_title', { thread_id: currentThreadId, title });
     if (data.success) {
       currentThreadTitle = title;
-      alert('Thread title updated.');
+      alert(t('msg-title-updated'));
     } else {
-      alert('Error: ' + data.error);
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Update title failed', error);
@@ -868,7 +1030,7 @@ async function handleAddMember(targetUuid) {
     if (data.success) {
       loadThreadSettings();
     } else {
-      alert('Error: ' + data.error);
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Add member failed', error);
@@ -876,13 +1038,13 @@ async function handleAddMember(targetUuid) {
 }
 
 async function handleRemoveMember(targetUuid) {
-  if (!confirm('Remove this member?')) return;
+  if (!confirm(t('msg-remove-member'))) return;
   try {
     const data = await apiCall('remove_thread_member', { thread_id: currentThreadId, target_user_uuid: targetUuid });
     if (data.success) {
       loadThreadSettings();
     } else {
-      alert('Error: ' + data.error);
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Remove member failed', error);
@@ -912,10 +1074,10 @@ async function joinWithInvite(threadId, token) {
   try {
     const data = await apiCall('join_with_invite', { thread_id: threadId, token });
     if (data.success) {
-      alert('Joined thread successfully!');
+      alert(t('msg-joined'));
       await loadThreads(); // 一覧を更新（画面遷移はhandleRoutingに任せる）
     } else {
-      alert('Failed to join: ' + (data.error || 'Invalid or expired token'));
+      alert(t(data.error) || data.error);
     }
   } catch (error) {
     console.error('Join failed', error);
@@ -957,4 +1119,34 @@ function urlBase64ToUint8Array(base64String) {
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
   return outputArray;
+}
+
+// --- i18n Helper Functions ---
+function t(key) {
+  if (TRANSLATIONS[key] && TRANSLATIONS[key][currentLang]) {
+    return TRANSLATIONS[key][currentLang];
+  }
+  return key; // Fallback to key if not found
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('lang', lang);
+  updateTranslations();
+  
+  // ラジオボタンの同期
+  document.querySelectorAll('input[name="lang"]').forEach(radio => {
+    if (radio.value === lang) radio.checked = true;
+  });
+}
+
+function updateTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    el.innerHTML = t(key); // innerHTML to support icons/html in translation
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+    el.placeholder = t(key);
+  });
 }
