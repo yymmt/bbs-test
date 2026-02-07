@@ -2,8 +2,8 @@ const CACHE_NAME = 'bbs-cache-v24';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=24',
-  './main.js?v=24',
+  './style.css?v=25',
+  './main.js?v=25',
   'https://unpkg.com/ress@4.0.0/dist/ress.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap',
@@ -75,6 +75,10 @@ self.addEventListener('push', event => {
         const options = {
           body: data.body || '',
           icon: data.icon || 'images/icons/icon.png',
+          badge: 'images/icons/badge.png',
+          vibrate: [200, 600, 200, 200, 200, 200, 200],
+          tag: 'bbs-notification',
+          renotify: true,
           data: { url: data.url || './' }
         };
         return self.registration.showNotification(title, options);

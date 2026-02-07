@@ -22,7 +22,7 @@ const TRANSLATIONS = {
   'label-user-name': { ja: 'ユーザー名', en: 'User Name' },
   'placeholder-enter-name': { ja: '名前を入力', en: 'Enter your name' },
   'btn-ok': { ja: 'OK', en: 'OK' },
-  'text-transfer-hint': { ja: '以前利用していた方は、引き継ぎコードがあれば設定を引き継ぐことができます。', en: 'If you have a transfer code, you can restore your settings.' },
+  'text-transfer-hint': { ja: '別の端末でも利用している方は、その端末で <i class="bi bi-list"></i> → ユーザ設定 → 引き継ぎコード発行 で表示される6桁の数字を、以下に入力することで、設定を引き継ぐことができます。', en: 'If you are using the app on another device, you can transfer your settings by entering the 6-digit code displayed in <i class="bi bi-list"></i> -> User Settings -> Issue Transfer Code on that device.' },
   'label-transfer-code': { ja: '引き継ぎコード', en: 'Transfer Code' },
   'placeholder-enter-code': { ja: 'コードを入力', en: 'Enter transfer code' },
   'text-install-prompt': { ja: 'ホーム画面にアイコンを追加することができます。', en: 'You can add this app to your home screen.' },
