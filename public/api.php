@@ -15,7 +15,7 @@ ini_set('error_log', __DIR__ . '/../php-error.log');
 
 $config = require __DIR__ . '/../config.php';
 
-const AI_USER_UUID = 'ai-assistant-0000-0000-0000-000000000000';
+const AI_USER_UUID = 'ai-assistant-0000-0000-0000-00000000';
 
 try {
     // DB接続
