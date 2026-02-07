@@ -102,7 +102,7 @@ body {
 }
 
 /* Welcome View */
-.welcome-section {
+.welcome-section h2 {
     text-align: center;
 }
 .divider {
