@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/ress@4.0.0/dist/ress.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="style.css?v=23">
-    <link rel="manifest" href="manifest.json?v=23">
+    <link rel="stylesheet" href="style.css?v=24">
+    <link rel="manifest" href="manifest.json?v=24">
     <link rel="apple-touch-icon" href="images/icons/icon.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -33,9 +33,12 @@
         <div id="welcome-view" class="hidden">
             <section class="welcome-section">
                 <h2 data-i18n="welcome-title">Simple BBSへようこそ</h2>
-                <div class="form-group language-switcher" style="margin-bottom: 1rem;">
-                    <label><input type="radio" name="lang" value="ja" checked> 日本語</label>
-                    <label style="margin-left: 1rem;"><input type="radio" name="lang" value="en"> English</label>
+                <div class="form-group language-switcher">
+                    <label data-i18n="label-language">Language</label>
+                    <div class="radio-button-container">
+                        <label><input type="radio" name="lang" value="ja" checked> 日本語</label>
+                        <label><input type="radio" name="lang" value="en"> English</label>
+                    </div>
                 </div>
                 <p data-i18n="welcome-text">初めて利用する方はユーザ名を設定してください。</p>
                 <form id="register-form">
@@ -72,9 +75,12 @@
 
         <div id="settings-view" class="hidden">
             <section class="user-settings-section">
-                <div class="form-group language-switcher" style="margin-bottom: 1rem; text-align: right;">
-                    <label><input type="radio" name="lang" value="ja"> 日本語</label>
-                    <label style="margin-left: 1rem;"><input type="radio" name="lang" value="en"> English</label>
+                <div class="form-group language-switcher">
+                    <label data-i18n="label-language">Language</label>
+                    <div class="radio-button-container">
+                        <label><input type="radio" name="lang" value="ja"> 日本語</label>
+                        <label><input type="radio" name="lang" value="en"> English</label>
+                    </div>
                 </div>
                 <form id="user-form">
                     <div class="form-group">
@@ -89,9 +95,9 @@
                 <h3 data-i18n="header-data-transfer">Data Transfer</h3>
                 <p data-i18n="text-issue-transfer-code">Issue a transfer code to move your data to another device.</p>
                 <button id="issue-transfer-code-btn" class="secondary-btn" type="button" data-i18n="btn-issue-transfer-code">Issue Transfer Code</button>
-                <div id="transfer-code-display" class="hidden" style="margin-top: 1rem; padding: 1rem; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
-                    <p style="margin: 0;"><span data-i18n="label-code">Code:</span> <strong id="transfer-code-value" style="font-size: 1.5em; letter-spacing: 2px;"></strong></p>
-                    <p style="margin: 0.5rem 0 0; font-size: 0.85rem; color: #666;"><span data-i18n="label-expires-at">Expires at:</span> <span id="transfer-code-expiry"></span></p>
+                <div id="transfer-code-display" class="transfer-code-display hidden">
+                    <p><span data-i18n="label-code">Code:</span> <strong id="transfer-code-value"></strong></p>
+                    <p><span data-i18n="label-expires-at">Expires at:</span> <span id="transfer-code-expiry"></span></p>
                 </div>
             </section>
         </div>
@@ -150,6 +156,6 @@
             </section>
         </div>
     </main>
-    <script src="main.js?v=23"></script>
+    <script src="main.js?v=24"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const APP_VERSION = 'v23';
+const APP_VERSION = 'v24';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -12,11 +12,13 @@ let hasMorePosts = true;
 let deferredPrompt = null;
 let currentLang = localStorage.getItem('lang') || 'ja';
 
+// 微調整指示: 見出し「言語選択」を追加。data-i18n対応。
 const TRANSLATIONS = {
   // UI
   'app-title': { ja: 'Simple BBS', en: 'Simple BBS' },
   'welcome-title': { ja: 'Simple BBSへようこそ', en: 'Welcome to Simple BBS' },
   'welcome-text': { ja: '初めて利用する方はユーザ名を設定してください。', en: 'Please set your username to start.' },
+  'label-language': { ja: '言語選択', en: 'Language' },
   'label-user-name': { ja: 'ユーザー名', en: 'User Name' },
   'placeholder-enter-name': { ja: '名前を入力', en: 'Enter your name' },
   'btn-ok': { ja: 'OK', en: 'OK' },

@@ -64,7 +64,7 @@ SPA (Single Page Application) 構成とする。
 - エラーハンドリング: 画面に表示せずログファイルに記録する。
 - コーディング規約:
   - PHP: PSR-12準拠。
-  - HTML/CSS: Google HTML/CSS Style Guide準拠 (セマンティックなHTML, CSSはkebab-case等)。
+  - HTML/CSS: Google HTML/CSS Style Guide準拠 (セマンティックなHTML, CSSはkebab-case等)。基本的にhtml内にstyle属性でcssを記述しないこと。
   - JavaScript: Google JavaScript Style Guide準拠 (camelCase, const/let推奨)。
   - 共通: 変数名は具体的で分かりやすい英語名を使用。
 - API設計: POSTメソッドのみ受け付け、ボディ内の action パラメータで処理を分岐させる。
