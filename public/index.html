@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/ress@4.0.0/dist/ress.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="style.css?v=22">
-    <link rel="manifest" href="manifest.json?v=22">
+    <link rel="stylesheet" href="style.css?v=23">
+    <link rel="manifest" href="manifest.json?v=23">
     <link rel="apple-touch-icon" href="images/icons/icon.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -21,9 +21,9 @@
         <button id="menu-btn" class="menu-btn"><i class="bi bi-list"></i></button>
         <nav id="nav-menu" class="nav-menu hidden">
             <ul>
-                <li><a href="#" data-target="thread-list-view">Threads</a></li>
-                <li><a href="#" data-target="settings-view">User Settings</a></li>
-                <li id="nav-thread-settings" class="hidden"><a href="#" data-target="thread-settings-view">Thread Settings</a></li>
+                <li><a href="#" data-target="thread-list-view" data-i18n="menu-threads">Threads</a></li>
+                <li><a href="#" data-target="settings-view" data-i18n="menu-user-settings">User Settings</a></li>
+                <li id="nav-thread-settings" class="hidden"><a href="#" data-target="thread-settings-view" data-i18n="menu-thread-settings">Thread Settings</a></li>
             </ul>
         </nav>
     </header>
@@ -32,35 +32,39 @@
         <!-- Welcome View (Initial Setup) -->
         <div id="welcome-view" class="hidden">
             <section class="welcome-section">
-                <h2>Simple BBSへようこそ</h2>
-                <p>初めて利用する方はユーザ名を設定してください。</p>
+                <h2 data-i18n="welcome-title">Simple BBSへようこそ</h2>
+                <div class="form-group language-switcher" style="margin-bottom: 1rem;">
+                    <label><input type="radio" name="lang" value="ja" checked> 日本語</label>
+                    <label style="margin-left: 1rem;"><input type="radio" name="lang" value="en"> English</label>
+                </div>
+                <p data-i18n="welcome-text">初めて利用する方はユーザ名を設定してください。</p>
                 <form id="register-form">
                     <div class="form-group">
-                        <label for="reg-username">User Name</label>
-                        <input type="text" id="reg-username" name="name" required maxlength="50" placeholder="Enter your name">
+                        <label for="reg-username" data-i18n="label-user-name">User Name</label>
+                        <input type="text" id="reg-username" name="name" required maxlength="50" placeholder="Enter your name" data-i18n-placeholder="placeholder-enter-name">
                     </div>
-                    <button type="submit">OK</button>
+                    <button type="submit" data-i18n="btn-ok">OK</button>
                 </form>
 
                 <hr class="divider">
-                <p>以前利用していた方は、引き継ぎコードがあれば設定を引き継ぐことができます。</p>
+                <p data-i18n="text-transfer-hint">以前利用していた方は、引き継ぎコードがあれば設定を引き継ぐことができます。</p>
                 <form id="transfer-form">
                     <div class="form-group">
-                        <label for="transfer-code">Transfer Code</label>
-                        <input type="text" id="transfer-code" name="code" placeholder="Enter transfer code" inputmode="numeric" pattern="\d*">
+                        <label for="transfer-code" data-i18n="label-transfer-code">Transfer Code</label>
+                        <input type="text" id="transfer-code" name="code" placeholder="Enter transfer code" inputmode="numeric" pattern="\d*" data-i18n-placeholder="placeholder-enter-code">
                     </div>
-                    <button type="submit">OK</button>
+                    <button type="submit" data-i18n="btn-ok">OK</button>
                 </form>
 
                 <div id="install-promotion" class="hidden">
                     <hr class="divider">
                     <div id="install-prompt-container" class="hidden">
-                        <p>ホーム画面にアイコンを追加することができます。</p>
-                        <button id="install-btn" type="button" class="secondary-btn"><i class="bi bi-download"></i> アプリのインストール</button>
+                        <p data-i18n="text-install-prompt">ホーム画面にアイコンを追加することができます。</p>
+                        <button id="install-btn" type="button" class="secondary-btn"><i class="bi bi-download"></i> <span data-i18n="btn-install">アプリのインストール</span></button>
                     </div>
                     <div id="ios-install-guide" class="hidden">
-                        <p>ホーム画面にアイコンを追加することができます。</p>
-                        <p class="install-guide-text">画面下部の <i class="bi bi-box-arrow-up"></i> から、「ホーム画面に追加」をタップしてください。</p>
+                        <p data-i18n="text-install-prompt">ホーム画面にアイコンを追加することができます。</p>
+                        <p class="install-guide-text" data-i18n="text-ios-guide">画面下部の <i class="bi bi-box-arrow-up"></i> から、「ホーム画面に追加」をタップしてください。</p>
                     </div>
                 </div>
             </section>
@@ -68,22 +72,26 @@
 
         <div id="settings-view" class="hidden">
             <section class="user-settings-section">
+                <div class="form-group language-switcher" style="margin-bottom: 1rem; text-align: right;">
+                    <label><input type="radio" name="lang" value="ja"> 日本語</label>
+                    <label style="margin-left: 1rem;"><input type="radio" name="lang" value="en"> English</label>
+                </div>
                 <form id="user-form">
                     <div class="form-group">
-                        <label for="username">Your Name</label>
-                        <input type="text" id="username" name="name" required maxlength="50" placeholder="Enter your name">
-                        <button type="submit">Save Name</button>
+                        <label for="username" data-i18n="label-your-name">Your Name</label>
+                        <input type="text" id="username" name="name" required maxlength="50" placeholder="Enter your name" data-i18n-placeholder="placeholder-enter-name">
+                        <button type="submit" data-i18n="btn-save-name">Save Name</button>
                     </div>
                 </form>
                 <div id="app-version" class="app-version"></div>
 
                 <hr class="divider">
-                <h3>Data Transfer</h3>
-                <p>Issue a transfer code to move your data to another device.</p>
-                <button id="issue-transfer-code-btn" class="secondary-btn" type="button">Issue Transfer Code</button>
+                <h3 data-i18n="header-data-transfer">Data Transfer</h3>
+                <p data-i18n="text-issue-transfer-code">Issue a transfer code to move your data to another device.</p>
+                <button id="issue-transfer-code-btn" class="secondary-btn" type="button" data-i18n="btn-issue-transfer-code">Issue Transfer Code</button>
                 <div id="transfer-code-display" class="hidden" style="margin-top: 1rem; padding: 1rem; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
-                    <p style="margin: 0;">Code: <strong id="transfer-code-value" style="font-size: 1.5em; letter-spacing: 2px;"></strong></p>
-                    <p style="margin: 0.5rem 0 0; font-size: 0.85rem; color: #666;">Expires at: <span id="transfer-code-expiry"></span></p>
+                    <p style="margin: 0;"><span data-i18n="label-code">Code:</span> <strong id="transfer-code-value" style="font-size: 1.5em; letter-spacing: 2px;"></strong></p>
+                    <p style="margin: 0.5rem 0 0; font-size: 0.85rem; color: #666;"><span data-i18n="label-expires-at">Expires at:</span> <span id="transfer-code-expiry"></span></p>
                 </div>
             </section>
         </div>
@@ -94,7 +102,7 @@
                 <div id="threads-container"></div>
                 <form id="thread-form">
                     <div class="form-group">
-                        <input type="text" name="title" required maxlength="100" placeholder="Create New Thread">
+                        <input type="text" name="title" required maxlength="100" placeholder="Create New Thread" data-i18n-placeholder="placeholder-create-thread">
                         <button type="submit"><i class="bi bi-plus-circle"></i></button>
                     </div>
                 </form>
@@ -104,22 +112,22 @@
         <!-- Thread Settings View -->
         <div id="thread-settings-view" class="hidden">
             <section class="thread-settings-section">
-                <h2>Thread Settings</h2>
+                <h2 data-i18n="header-thread-settings">Thread Settings</h2>
                 <form id="thread-rename-form">
                     <div class="form-group">
-                        <label>Thread Name</label>
+                        <label data-i18n="label-thread-name">Thread Name</label>
                         <input type="text" id="setting-thread-title" name="title" required maxlength="100">
-                        <button type="submit">Rename</button>
+                        <button type="submit" data-i18n="btn-rename">Rename</button>
                     </div>
                 </form>
                 
-                <h3>Members</h3>
+                <h3 data-i18n="header-members">Members</h3>
                 <div id="member-list" class="member-list"></div>
 
-                <h3>Add Members</h3>
+                <h3 data-i18n="header-add-members">Add Members</h3>
                 <div id="candidate-list" class="member-list"></div>
 
-                <h3>Invite via QR Code</h3>
+                <h3 data-i18n="header-invite-qr">Invite via QR Code</h3>
                 <div id="qr-code-container" class="qr-code-container"></div>
             </section>
         </div>
@@ -133,7 +141,7 @@
             <section class="post-form-section">
                 <form id="post-form">
                     <div class="form-group">
-                        <textarea id="body" name="body" required placeholder="Type a message..."></textarea>
+                        <textarea id="body" name="body" required placeholder="Type a message..." data-i18n-placeholder="placeholder-type-message"></textarea>
                     </div>
                     <button type="submit">
                         <i class="bi bi-send"></i>
@@ -142,6 +150,6 @@
             </section>
         </div>
     </main>
-    <script src="main.js?v=22"></script>
+    <script src="main.js?v=23"></script>
 </body>
 </html>

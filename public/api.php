@@ -42,7 +42,7 @@ try {
     $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
         http_response_code(403);
-        echo json_encode(['error' => 'Invalid CSRF token']);
+        echo json_encode(['error' => 'error_invalid_csrf_token']);
         exit;
     }
 
@@ -54,7 +54,7 @@ try {
         $after_id = isset($input['after_id']) ? (int)$input['after_id'] : 0;
 
         if (empty($thread_id)) {
-            throw new Exception('Thread ID is required');
+            throw new Exception('error_thread_id_required');
         }
 
         // スレッドへのアクセス権確認
@@ -62,7 +62,7 @@ try {
         $stmt->execute([$thread_id, $user_uuid]);
         if (!$stmt->fetch()) {
             http_response_code(403);
-            echo json_encode(['error' => 'Access denied to this thread']);
+            echo json_encode(['error' => 'error_access_denied']);
             exit;
         }
 
@@ -104,7 +104,7 @@ try {
 
     } elseif ($action === 'create_post') {
         if (empty($input['body']) || empty($input['thread_id']) || empty($user_uuid)) {
-            throw new Exception('Missing required fields');
+            throw new Exception('error_missing_fields');
         }
         
         $thread_id = (int)$input['thread_id'];
@@ -114,7 +114,7 @@ try {
         $stmt->execute([$thread_id, $user_uuid]);
         if (!$stmt->fetch()) {
             http_response_code(403);
-            echo json_encode(['error' => 'Access denied to this thread']);
+            echo json_encode(['error' => 'error_access_denied']);
             exit;
         }
 
@@ -162,7 +162,7 @@ try {
 
     } elseif ($action === 'create_thread') {
         if (empty($input['title']) || empty($user_uuid)) {
-            throw new Exception('Missing required fields');
+            throw new Exception('error_missing_fields');
         }
         $pdo->beginTransaction();
         try {
@@ -184,7 +184,7 @@ try {
 
     } elseif ($action === 'delete_post') {
         if (empty($input['id']) || empty($user_uuid)) {
-            throw new Exception('Missing required fields');
+            throw new Exception('error_missing_fields');
         }
         
         // 投稿の存在確認とthread_id取得（自身の投稿であることも確認）
@@ -194,7 +194,7 @@ try {
         
         if (!$post) {
             http_response_code(400);
-            echo json_encode(['error' => 'Invalid id or permission denied']);
+            echo json_encode(['error' => 'error_invalid_id_or_permission']);
             exit;
         }
         
@@ -222,7 +222,7 @@ try {
 
     } elseif ($action === 'register_user') {
         if (empty($input['name']) || empty($user_uuid)) {
-            throw new Exception('Missing required fields');
+            throw new Exception('error_missing_fields');
         }
         // 新規登録（UUIDが重複していたらエラーになるが、クライアント側で制御想定）
         $stmt = $pdo->prepare("INSERT INTO users (user_uuid, name) VALUES (?, ?)");
@@ -231,7 +231,7 @@ try {
 
     } elseif ($action === 'update_user') {
         if (empty($input['name']) || empty($user_uuid)) {
-            throw new Exception('Missing required fields');
+            throw new Exception('error_missing_fields');
         }
         // 名前を保存または更新
         $stmt = $pdo->prepare("INSERT INTO users (user_uuid, name) VALUES (?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)");
@@ -240,7 +240,7 @@ try {
 
     } elseif ($action === 'generate_transfer_code') {
         if (empty($user_uuid)) {
-            throw new Exception('User UUID required');
+            throw new Exception('error_user_uuid_required');
         }
         // 数字6桁のコード生成
         $code = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
@@ -253,7 +253,7 @@ try {
 
     } elseif ($action === 'check_transfer_code') {
         if (empty($input['code'])) {
-            throw new Exception('Code is required');
+            throw new Exception('error_code_required');
         }
         $stmt = $pdo->prepare("SELECT user_uuid FROM transfer_codes WHERE code = ? AND expire_at > NOW()");
         $stmt->execute([$input['code']]);
@@ -261,12 +261,12 @@ try {
         if ($result) {
             echo json_encode(['success' => true, 'user_uuid' => $result['user_uuid']]);
         } else {
-            echo json_encode(['success' => false, 'error' => 'Invalid or expired code']);
+            echo json_encode(['success' => false, 'error' => 'error_invalid_code']);
         }
 
     } elseif ($action === 'register_subscription') {
         if (empty($input['endpoint']) || empty($input['keys']['p256dh']) || empty($input['keys']['auth']) || empty($user_uuid)) {
-            throw new Exception('Missing required fields');
+            throw new Exception('error_missing_fields');
         }
         $stmt = $pdo->prepare("
             INSERT INTO push_subscriptions (user_uuid, endpoint, public_key, auth_token) 
@@ -278,13 +278,13 @@ try {
 
     } elseif ($action === 'get_thread_settings') {
         $thread_id = (int)($input['thread_id'] ?? 0);
-        if (empty($thread_id)) throw new Exception('Thread ID required');
+        if (empty($thread_id)) throw new Exception('error_thread_id_required');
 
         // スレッド情報
         $stmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
         $stmt->execute([$thread_id]);
         $thread = $stmt->fetch();
-        if (!$thread) throw new Exception('Thread not found');
+        if (!$thread) throw new Exception('error_thread_not_found');
 
         // 参加メンバー
         $stmt = $pdo->prepare("SELECT u.user_uuid, u.name FROM thread_users tu JOIN users u ON tu.user_uuid = u.user_uuid WHERE tu.thread_id = ?");
@@ -315,12 +315,12 @@ try {
 
     } elseif ($action === 'update_thread_title') {
         $thread_id = (int)($input['thread_id'] ?? 0);
-        if (empty($thread_id) || empty($input['title'])) throw new Exception('Invalid input');
+        if (empty($thread_id) || empty($input['title'])) throw new Exception('error_invalid_input');
 
         // 権限チェック（参加者ならOK）
         $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
         $stmt->execute([$thread_id, $user_uuid]);
-        if (!$stmt->fetch()) throw new Exception('Permission denied');
+        if (!$stmt->fetch()) throw new Exception('error_permission_denied');
 
         $stmt = $pdo->prepare("UPDATE threads SET title = ? WHERE id = ?");
         $stmt->execute([$input['title'], $thread_id]);
@@ -329,12 +329,12 @@ try {
     } elseif ($action === 'add_thread_member') {
         $thread_id = (int)($input['thread_id'] ?? 0);
         $target_uuid = $input['target_user_uuid'] ?? '';
-        if (empty($thread_id) || empty($target_uuid)) throw new Exception('Invalid input');
+        if (empty($thread_id) || empty($target_uuid)) throw new Exception('error_invalid_input');
 
         // 権限チェック
         $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
         $stmt->execute([$thread_id, $user_uuid]);
-        if (!$stmt->fetch()) throw new Exception('Permission denied');
+        if (!$stmt->fetch()) throw new Exception('error_permission_denied');
 
         $stmt = $pdo->prepare("INSERT IGNORE INTO thread_users (thread_id, user_uuid) VALUES (?, ?)");
         $stmt->execute([$thread_id, $target_uuid]);
@@ -343,12 +343,12 @@ try {
     } elseif ($action === 'remove_thread_member') {
         $thread_id = (int)($input['thread_id'] ?? 0);
         $target_uuid = $input['target_user_uuid'] ?? '';
-        if (empty($thread_id) || empty($target_uuid)) throw new Exception('Invalid input');
+        if (empty($thread_id) || empty($target_uuid)) throw new Exception('error_invalid_input');
 
         // 権限チェック
         $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
         $stmt->execute([$thread_id, $user_uuid]);
-        if (!$stmt->fetch()) throw new Exception('Permission denied');
+        if (!$stmt->fetch()) throw new Exception('error_permission_denied');
 
         $stmt = $pdo->prepare("DELETE FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
         $stmt->execute([$thread_id, $target_uuid]);
@@ -356,7 +356,7 @@ try {
 
     } elseif ($action === 'generate_invite_token') {
         $thread_id = (int)($input['thread_id'] ?? 0);
-        if (empty($thread_id)) throw new Exception('Thread ID required');
+        if (empty($thread_id)) throw new Exception('error_thread_id_required');
 
         $token = bin2hex(random_bytes(16));
         $expires_at = date('Y-m-d H:i:s', strtotime('+24 hours'));
@@ -368,7 +368,7 @@ try {
     } elseif ($action === 'join_with_invite') {
         $thread_id = (int)($input['thread_id'] ?? 0);
         $token = $input['token'] ?? '';
-        if (empty($thread_id) || empty($token)) throw new Exception('Invalid input');
+        if (empty($thread_id) || empty($token)) throw new Exception('error_invalid_input');
 
         $stmt = $pdo->prepare("SELECT 1 FROM thread_invites WHERE thread_id = ? AND token = ? AND expires_at > NOW()");
         $stmt->execute([$thread_id, $token]);
@@ -377,12 +377,12 @@ try {
             $stmt->execute([$thread_id, $user_uuid]);
             echo json_encode(['success' => true]);
         } else {
-            echo json_encode(['success' => false, 'error' => 'Invalid or expired token']);
+            echo json_encode(['success' => false, 'error' => 'error_invalid_token']);
         }
 
     } else {
         http_response_code(400);
-        echo json_encode(['error' => 'Invalid action']);
+        echo json_encode(['error' => 'error_invalid_action']);
     }
 } catch (Exception $e) {
     // エラーログの詳細化
@@ -397,7 +397,7 @@ try {
     );
     error_log($log_message);
     http_response_code(500);
-    echo json_encode(['error' => 'Internal Server Error']);
+    echo json_encode(['error' => 'error_internal_server_error']);
 }
 
 /**
