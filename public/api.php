@@ -15,6 +15,8 @@ ini_set('error_log', __DIR__ . '/../php-error.log');
 
 $config = require __DIR__ . '/../config.php';
 
+const AI_USER_UUID = 'ai-assistant-0000-0000-0000-000000000000';
+
 try {
     // DB接続
     $pdo = getPDO();
@@ -379,6 +381,92 @@ try {
         } else {
             echo json_encode(['success' => false, 'error' => 'error_invalid_token']);
         }
+
+    } elseif ($action === 'summarize_thread') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        if (empty($thread_id)) throw new Exception('error_thread_id_required');
+
+        // 権限チェック
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('error_permission_denied');
+
+        // 直近の投稿を取得 (10件)
+        $stmt = $pdo->prepare("
+            SELECT p.body, u.name 
+            FROM posts p 
+            JOIN users u ON p.user_uuid = u.user_uuid 
+            WHERE p.thread_id = ? AND p.deleted_at IS NULL 
+            ORDER BY p.id DESC LIMIT 10
+        ");
+        $stmt->execute([$thread_id]);
+        $posts = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC)); // 古い順にする
+
+        if (empty($posts)) {
+            throw new Exception('error_invalid_input'); // 投稿がない場合はエラー扱い
+        }
+
+        // プロンプト作成
+        $prompt = "以下のチャットログを要約してください。\n\n";
+        foreach ($posts as $post) {
+            $prompt .= "{$post['name']}: {$post['body']}\n";
+        }
+
+        // Gemini API 呼び出し
+        $apiKey = $config['gemini']['api_key'] ?? '';
+        if (empty($apiKey)) throw new Exception('error_internal_server_error'); // APIキー未設定
+
+        $api_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent';
+        $data = [
+            "contents" => [
+                ["parts" => [["text" => $prompt]]]
+            ]
+        ];
+
+        $ch = curl_init($api_url);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'X-goog-api-key: ' . $apiKey
+        ]);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        $response = curl_exec($ch);
+
+        if (curl_errno($ch)) {
+            error_log('Curl error: ' . curl_error($ch));
+            curl_close($ch);
+            throw new Exception('error_internal_server_error');
+        }
+        curl_close($ch);
+
+        $result = json_decode($response, true);
+        $aiText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '要約に失敗しました。';
+
+        // AIユーザーとして投稿
+        $stmt = $pdo->prepare("INSERT INTO posts (thread_id, body, user_uuid) VALUES (?, ?, ?)");
+        $stmt->execute([$thread_id, $aiText, AI_USER_UUID]);
+        $new_post_id = $pdo->lastInsertId();
+
+        // 通知は create_post と同様のロジックが必要だが、ここでは簡略化のため省略するか、共通関数を呼ぶ
+        // AIの投稿も通知対象とする
+        sendWebPush($pdo, $config, $thread_id, AI_USER_UUID, function() use ($pdo, $thread_id, $new_post_id, $aiText) {
+            $stmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
+            $stmt->execute([$thread_id]);
+            $threadTitle = $stmt->fetchColumn();
+            return json_encode([
+                'type' => 'create',
+                'thread_id' => $thread_id,
+                'post_id' => $new_post_id,
+                'title' => "AI Summary in {$threadTitle}",
+                'body' => mb_substr($aiText, 0, 50) . '...',
+                'url' => "index.html?thread_id={$thread_id}",
+                'icon' => 'images/icons/icon.png'
+            ]);
+        });
+
+        echo json_encode(['success' => true]);
 
     } else {
         http_response_code(400);
