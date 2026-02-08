@@ -1,11 +1,11 @@
-const CACHE_NAME = 'bbs-cache-v28';
+const CACHE_NAME = 'bbs-cache-v29';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=28',
-  './main.js?v=28',
+  './style.css?v=29',
+  './main.js?v=29',
   'https://unpkg.com/ress@4.0.0/dist/ress.min.css',
-  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css',
+  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
 ];
