@@ -42,6 +42,10 @@ cp config.php.example config.php
 php -r "require 'vendor/autoload.php'; use Minishlink\WebPush\VAPID; var_dump(VAPID::createVapidKeys());"
 ```
 
+**Gemini APIキーの設定**
+AI機能を利用する場合は、Google AI StudioでAPIキーを取得し、`config.php` の `gemini` セクションに設定してください。
+取得URL: https://aistudio.google.com/app/apikey
+
 ### 3. データベースの準備
 `config.php` に設定したデータベースに対して、マイグレーションを実行します。
 ブラウザから `/admin/migrate.php` にアクセスして実行してください。
