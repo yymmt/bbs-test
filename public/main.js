@@ -49,7 +49,7 @@ const TRANSLATIONS = {
   'header-add-members': { ja: 'メンバー追加', en: 'Add Members' },
   'header-invite-qr': { ja: 'QRコード招待', en: 'Invite via QR Code' },
   'btn-generate-qr': { ja: '招待用QRコードを表示', en: 'Show Invite QR Code' },
-  'header-ai-features': { ja: 'AI機能', en: 'AI Features' },
+  'header-ai-features': { ja: 'AI機能 <i class="bi bi-rocket-takeoff-fill"></i>', en: 'AI Features <i class="bi bi-rocket-takeoff-fill"></i>' },
   'btn-summarize': { ja: '要約して投稿', en: 'Summarize & Post' },
   'btn-checklist': { ja: 'ToDoリスト作成', en: 'Generate Checklist' },
   

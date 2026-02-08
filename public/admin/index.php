@@ -73,6 +73,9 @@ try {
                 マイグレーション実行 - 完了済み
             <?php endif; ?>
         </li>
+        <li>
+            <a href="php-error.log" target="_blank">エラーログ (php-error.log)</a>
+        </li>
     </ul>
 </body>
 </html>
