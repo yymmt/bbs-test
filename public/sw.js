@@ -1,9 +1,9 @@
-const CACHE_NAME = 'bbs-cache-v30';
+const CACHE_NAME = 'bbs-cache-v31';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=30',
-  './main.js?v=30',
+  './style.css?v=31',
+  './main.js?v=31',
   'https://unpkg.com/ress@4.0.0/dist/ress.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap',
@@ -87,6 +87,13 @@ self.addEventListener('push', event => {
   });
 
   event.waitUntil(promiseChain);
+});
+
+// Message event: Handle requests from client
+self.addEventListener('message', event => {
+  if (event.data && event.data.action === 'get_version') {
+    event.ports[0].postMessage({ version: CACHE_NAME });
+  }
 });
 
 // Notification click event

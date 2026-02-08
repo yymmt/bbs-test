@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/ress@4.0.0/dist/ress.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="style.css?v=30">
-    <link rel="manifest" href="manifest.json?v=30">
+    <link rel="stylesheet" href="style.css?v=31">
+    <link rel="manifest" href="manifest.json?v=31">
     <link rel="apple-touch-icon" href="images/icons/icon.png">
     <link rel="icon" href="images/icons/icon.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -91,7 +91,10 @@
                         <button type="submit" data-i18n="btn-save-name">Save Name</button>
                     </div>
                 </form>
-                <div id="app-version" class="app-version"></div><!-- app-reloadボタンを設ける。単純に location.reload() させる。index.html のキャッシュの更新や、sw.js とのバージョンの差異の解消が目的。 -->
+                <div id="app-version" class="app-version"></div>
+                <div class="app-version">
+                    <button id="app-reload-btn" type="button" class="secondary-btn" data-i18n="btn-reload">Reload App</button>
+                </div>
 
                 <hr class="divider">
                 <h3 data-i18n="header-data-transfer">Data Transfer</h3>
@@ -178,6 +181,6 @@
             </section>
         </div>
     </main>
-    <script src="main.js?v=30"></script>
+    <script src="main.js?v=31"></script>
 </body>
 </html>

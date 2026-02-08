@@ -1,4 +1,4 @@
-const APP_VERSION = 'v30';
+const APP_VERSION = 'v31';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -53,6 +53,7 @@ const TRANSLATIONS = {
   'header-ai-features': { ja: 'AI機能 <i class="bi bi-rocket-takeoff-fill"></i>', en: 'AI Features <i class="bi bi-rocket-takeoff-fill"></i>' },
   'btn-summarize': { ja: '要約して投稿', en: 'Summarize & Post' },
   'btn-checklist': { ja: 'ToDoリスト作成', en: 'Generate Checklist' },
+  'btn-reload': { ja: 'アプリを再読み込み', en: 'Reload App' },
   
   'placeholder-type-message': { ja: 'メッセージを入力...', en: 'Type a message...' },
   
@@ -294,6 +295,7 @@ async function init() {
   document.getElementById('generate-qr-btn').addEventListener('click', generateQrCode);
   document.getElementById('checklist-btn').addEventListener('click', handleGenerateChecklist);
   document.getElementById('nav-checklists').querySelector('a').addEventListener('click', handleNavClick);
+  document.getElementById('app-reload-btn').addEventListener('click', () => location.reload());
 
   // スクロールイベント監視（無限スクロール）
   window.addEventListener('scroll', handleScroll);
@@ -987,8 +989,20 @@ function showView(viewId) {
 
   // --- 各ビューに固有の処理 ---
   if (viewId === 'settings-view') {
-      document.getElementById('app-version').textContent = `App Version: ${APP_VERSION}`;
-      // 微調整指示: sw.js の CACHE_NAME も取得して表示したい。APP_VERSION と一致しているか目視で確認できるように。
+      const appVerEl = document.getElementById('app-version');
+      appVerEl.innerHTML = `App: ${APP_VERSION}`;
+      
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = (event) => {
+            if (event.data && event.data.version) {
+                appVerEl.innerHTML += `<br>SW: ${event.data.version}`;
+            }
+        };
+        navigator.serviceWorker.controller.postMessage({ action: 'get_version' }, [channel.port2]);
+      } else {
+        appVerEl.innerHTML += `<br>SW: Not Active`;
+      }
   }
   if (viewId === 'thread-settings-view') {
       loadThreadSettings();
