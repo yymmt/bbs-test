@@ -1,4 +1,4 @@
-const APP_VERSION = 'v29';
+const APP_VERSION = 'v30';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -31,6 +31,7 @@ const TRANSLATIONS = {
   'menu-threads': { ja: 'スレッド一覧', en: 'Threads' },
   'menu-user-settings': { ja: 'ユーザー設定', en: 'User Settings' },
   'menu-thread-settings': { ja: 'スレッド設定', en: 'Thread Settings' },
+  'menu-checklists': { ja: 'チェックリスト一覧', en: 'Checklists' },
   
   'label-your-name': { ja: 'あなたの名前', en: 'Your Name' },
   'btn-save-name': { ja: '名前を保存', en: 'Save Name' },
@@ -58,6 +59,7 @@ const TRANSLATIONS = {
   'btn-delete': { ja: '削除', en: 'Delete' },
   'msg-no-threads': { ja: 'スレッドが見つかりません。新規作成するか、招待を受けてください。', en: 'No threads found. Create a new one or ask for an invitation.' },
   'msg-no-candidates': { ja: '候補がいません。', en: 'No candidates found.' },
+  'msg-no-checklists': { ja: 'チェックリストはありません。', en: 'No checklists found.' },
 
   // JS Messages
   'msg-confirm-delete': { ja: '本当に削除しますか？', en: 'Are you sure you want to delete this post?' },
@@ -291,6 +293,7 @@ async function init() {
   document.getElementById('summarize-btn').addEventListener('click', handleSummarizeThread);
   document.getElementById('generate-qr-btn').addEventListener('click', generateQrCode);
   document.getElementById('checklist-btn').addEventListener('click', handleGenerateChecklist);
+  document.getElementById('nav-checklists').querySelector('a').addEventListener('click', handleNavClick);
 
   // スクロールイベント監視（無限スクロール）
   window.addEventListener('scroll', handleScroll);
@@ -331,6 +334,7 @@ async function handleRouting() {
   const urlParams = new URLSearchParams(window.location.search);
   const threadId = urlParams.get('thread_id');
   const inviteToken = urlParams.get('invite_token');
+  const checklistId = urlParams.get('checklist_id');
 
   if (inviteToken && threadId) {
     await joinWithInvite(threadId, inviteToken);
@@ -345,6 +349,12 @@ async function handleRouting() {
     if (threads.length === 0) await loadThreads();
 
     const targetThread = threads.find(t => t.id == threadId);
+    
+    if (checklistId) {
+      openChecklist(checklistId, targetThread ? targetThread.title : '');
+      return;
+    }
+
     if (targetThread) {
       openThread(targetThread.id, targetThread.title);
       return;
@@ -361,6 +371,14 @@ function navigateToThread(id) {
   url.searchParams.set('thread_id', id);
   // invite_tokenが残っていたら消す
   url.searchParams.delete('invite_token');
+  history.pushState({}, '', url);
+  handleRouting();
+}
+
+function navigateToChecklist(id) {
+  const url = new URL(window.location);
+  // thread_idは維持する
+  url.searchParams.set('checklist_id', id);
   history.pushState({}, '', url);
   handleRouting();
 }
@@ -570,6 +588,12 @@ function openThread(id, title) {
   
   showView('thread-detail-view');
   loadPosts();
+}
+
+function openChecklist(id, threadTitle) {
+  currentThreadTitle = threadTitle; // スレッドタイトルを維持
+  showView('checklist-detail-view');
+  loadChecklistDetail(id);
 }
 
 async function loadPosts(isPastLog = false) {
@@ -902,19 +926,22 @@ function handleNavClick(e) {
   const targetId = e.target.dataset.target;
   
   if (targetId === 'thread-list-view') {
-    // 一覧に戻る場合はURLパラメータをクリア
+    // スレッド一覧に戻る場合はURLパラメータをクリア
     const url = new URL(window.location);
     url.searchParams.delete('thread_id');
+    url.searchParams.delete('checklist_id');
     history.pushState({}, '', url);
     handleRouting();
   } else {
     showView(targetId);
+    if (targetId === 'checklist-list-view') loadChecklists();
   }
   toggleMenu(); // Close menu
 }
 
 function showView(viewId) {
   const views = ['welcome-view', 'thread-list-view', 'thread-detail-view', 'settings-view', 'thread-settings-view'];
+  views.push('checklist-list-view', 'checklist-detail-view');
   views.forEach(id => {
     document.getElementById(id).classList.add('hidden');
   });
@@ -922,11 +949,13 @@ function showView(viewId) {
 
   // --- UI要素の表示/非表示とタイトルをデータ駆動で管理 ---
   const viewConfig = {
-    'welcome-view':         { showHeader: false, showBackBtn: false, showThreadSettings: false, titleKey: '' },
-    'thread-list-view':     { showHeader: true,  showBackBtn: false, showThreadSettings: false, titleKey: 'app-title' },
-    'thread-detail-view':   { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  titleKey: null }, // dynamic
-    'settings-view':        { showHeader: true,  showBackBtn: false, showThreadSettings: false, titleKey: 'menu-user-settings' },
-    'thread-settings-view': { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  titleKey: 'menu-thread-settings' },
+    'welcome-view':         { showHeader: false, showBackBtn: false, showThreadSettings: false, showChecklistMenu: false, titleKey: '' },
+    'thread-list-view':     { showHeader: true,  showBackBtn: false, showThreadSettings: false, showChecklistMenu: false, titleKey: 'app-title' },
+    'thread-detail-view':   { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  showChecklistMenu: true,  titleKey: null }, // dynamic
+    'settings-view':        { showHeader: true,  showBackBtn: false, showThreadSettings: false, showChecklistMenu: false, titleKey: 'menu-user-settings' },
+    'thread-settings-view': { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  showChecklistMenu: true,  titleKey: 'menu-thread-settings' },
+    'checklist-list-view':  { showHeader: true,  showBackBtn: true,  showThreadSettings: true,  showChecklistMenu: false, titleKey: 'menu-checklists' },
+    'checklist-detail-view':{ showHeader: true,  showBackBtn: true,  showThreadSettings: true,  showChecklistMenu: true,  titleKey: null }, // dynamic
   };
 
   const config = viewConfig[viewId];
@@ -938,6 +967,8 @@ function showView(viewId) {
   document.getElementById('back-btn').classList.toggle('hidden', !config.showBackBtn);
   // スレッド設定メニュー
   document.getElementById('nav-thread-settings').classList.toggle('hidden', !config.showThreadSettings);
+  // チェックリストメニュー
+  document.getElementById('nav-checklists').classList.toggle('hidden', !config.showChecklistMenu);
 
   // ページタイトル
   const pageTitle = document.getElementById('page-title');
@@ -946,12 +977,18 @@ function showView(viewId) {
     pageTitle.textContent = t(config.titleKey);
   } else {
     pageTitle.removeAttribute('data-i18n');
-    pageTitle.textContent = currentThreadTitle;
+    if (viewId === 'checklist-detail-view') {
+      // 詳細画面ではチェックリストのタイトルを表示したいが、ロード前はスレッド名にしておく
+      pageTitle.textContent = currentThreadTitle; 
+    } else {
+      pageTitle.textContent = currentThreadTitle;
+    }
   }
 
   // --- 各ビューに固有の処理 ---
   if (viewId === 'settings-view') {
       document.getElementById('app-version').textContent = `App Version: ${APP_VERSION}`;
+      // 微調整指示: sw.js の CACHE_NAME も取得して表示したい。APP_VERSION と一致しているか目視で確認できるように。
   }
   if (viewId === 'thread-settings-view') {
       loadThreadSettings();
@@ -1092,6 +1129,8 @@ async function handleGenerateChecklist() {
     const data = await apiCall('generate_checklist', { thread_id: currentThreadId });
     if (data.success) {
       alert(t('msg-checklist-sent'));
+      // 投稿一覧を更新
+      loadPosts(false);
     } else {
       alert(t(data.error) || data.error);
     }
@@ -1171,6 +1210,104 @@ function urlBase64ToUint8Array(base64String) {
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
   return outputArray;
+}
+
+// --- Checklist Functions ---
+async function loadChecklists() {
+  if (!currentThreadId) return;
+  try {
+    const data = await apiCall('get_checklists', { thread_id: currentThreadId });
+    renderChecklists(data.checklists || []);
+  } catch (error) {
+    console.error('Failed to load checklists', error);
+  }
+}
+
+function renderChecklists(checklists) {
+  const container = document.getElementById('checklist-container');
+  container.innerHTML = '';
+
+  if (checklists.length === 0) {
+    const p = document.createElement('p');
+    p.textContent = t('msg-no-checklists');
+    p.style.textAlign = 'center';
+    p.style.color = '#666';
+    container.appendChild(p);
+    return;
+  }
+
+  checklists.forEach(list => {
+    const div = document.createElement('div');
+    div.className = 'checklist-item-summary';
+    div.onclick = () => navigateToChecklist(list.id);
+
+    const title = document.createElement('div');
+    title.className = 'checklist-title';
+    title.textContent = list.title;
+
+    const progress = document.createElement('div');
+    progress.className = 'checklist-progress';
+    const percent = list.total_items > 0 ? Math.round((list.checked_items / list.total_items) * 100) : 0;
+    progress.innerHTML = `
+      <div class="progress-bar-container">
+        <div class="progress-bar" style="width: ${percent}%"></div>
+      </div>
+      <span class="progress-text">${list.checked_items} / ${list.total_items} (${percent}%)</span>
+    `;
+
+    div.appendChild(title);
+    div.appendChild(progress);
+    container.appendChild(div);
+  });
+}
+
+async function loadChecklistDetail(checklistId) {
+  try {
+    const data = await apiCall('get_checklist_detail', { checklist_id: checklistId });
+    if (data.success) {
+      // タイトル更新
+      document.getElementById('page-title').textContent = data.checklist.title;
+      renderChecklistDetail(data.items);
+    }
+  } catch (error) {
+    console.error('Failed to load checklist detail', error);
+  }
+}
+
+function renderChecklistDetail(items) {
+  const container = document.getElementById('checklist-items-container');
+  container.innerHTML = '';
+
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'checklist-row';
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !!item.is_checked;
+    checkbox.id = `check-${item.id}`;
+    checkbox.onchange = (e) => handleUpdateChecklistItem(item.id, e.target.checked);
+
+    const label = document.createElement('label');
+    label.htmlFor = `check-${item.id}`;
+    label.textContent = item.content;
+    if (item.is_checked) label.classList.add('checked-label');
+
+    div.appendChild(checkbox);
+    div.appendChild(label);
+    container.appendChild(div);
+  });
+}
+
+async function handleUpdateChecklistItem(itemId, isChecked) {
+  try {
+    await apiCall('update_checklist_item', { item_id: itemId, is_checked: isChecked });
+    // ラベルのスタイル更新
+    const label = document.querySelector(`label[for="check-${itemId}"]`);
+    if (label) label.classList.toggle('checked-label', isChecked);
+  } catch (error) {
+    console.error('Failed to update checklist item', error);
+  }
 }
 
 // --- i18n Helper Functions ---

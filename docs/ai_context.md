@@ -97,6 +97,8 @@ SPA (Single Page Application) 構成とする。
     - スレッド一覧画面（ホーム）
     - ユーザー設定画面
     - スレッド設定画面
+    - チェックリスト一覧画面
+    - チェックリスト詳細画面
 - 初期設定 (Welcome画面): 初回アクセス時（UUID未保持）に表示。
   - ユーザー名登録: 名前を入力して利用開始する。
   - 引き継ぎ: 引き継ぎコードを入力し、既存のUUIDを設定する（機種変更後の端末など）。
@@ -134,7 +136,12 @@ SPA (Single Page Application) 構成とする。
     - クリックすると、AIアシスタントが直近の投稿（10件程度）を読み込み、要約文を生成してスレッドに投稿する。
   - AIチェックリスト生成機能:
     - 「会話からToDoリストを作成して投稿」ボタンを設置する。
-    - クリックすると、AIアシスタントが直近の投稿からタスクを抽出し、Markdown形式のチェックリストとして投稿する。
+    - クリックすると、AIアシスタントが直近の投稿からタスクを抽出し、構造化データとして保存する。
+    - スレッドには「チェックリストを作成しました」というメッセージを投稿する。
+- チェックリスト機能:
+  - チェックリスト一覧: スレッドに紐づくチェックリストの一覧を表示する。進捗状況（完了数/全項目数）を表示する。
+  - チェックリスト詳細: チェック項目の確認と操作（チェックON/OFF）を行う。
+    - 将来対応: 項目ごとの重要度表示、担当者割り当て、証跡画像の添付などを想定。
 - AIアシスタント機能:
   - システム上に「AI Assistant」という名前の専用ユーザー（固定UUID）が存在する。
   - ユーザーからのリクエスト（ボタン押下等）に応じて、Gemini APIを利用してテキストを生成し、投稿を行う。
@@ -210,6 +217,27 @@ SPA (Single Page Application) 構成とする。
 - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
 - UNIQUE(user_uuid, endpoint(255))
 
+## checklists テーブル
+- id: INT AUTO_INCREMENT PRIMARY KEY
+- thread_id: INT NOT NULL
+- post_id: INT NOT NULL -- 生成時のAI投稿ID
+- title: VARCHAR(255) NOT NULL
+- status: VARCHAR(20) DEFAULT 'open' -- open, completed
+- created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+- FOREIGN KEY (thread_id) REFERENCES threads(id)
+- FOREIGN KEY (post_id) REFERENCES posts(id)
+
+## checklist_items テーブル
+- id: INT AUTO_INCREMENT PRIMARY KEY
+- checklist_id: INT NOT NULL
+- content: TEXT NOT NULL
+- is_checked: BOOLEAN DEFAULT FALSE
+- created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+- updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+- FOREIGN KEY (checklist_id) REFERENCES checklists(id) ON DELETE CASCADE
+- 将来対応: importance (重要度), evidence_required (証跡必須), assignee_uuid (担当者), note (補足) 等のカラム追加を想定。
+
 ## migrates テーブル (マイグレーション管理)
 - id: INT AUTO_INCREMENT PRIMARY KEY
 - filename: VARCHAR(255) NOT NULL UNIQUE
@@ -227,6 +255,7 @@ SPA (Single Page Application) 構成とする。
 - 009_add_updated_at_to_posts.sql
 - 010_add_deleted_at_to_posts.sql
 - 011_create_ai_user.sql
+- 012_create_checklists.sql
 
 # API仕様 (詳細設計)
 - POST /api.php
@@ -256,6 +285,9 @@ SPA (Single Page Application) 構成とする。
   - action=summarize_thread: 指定スレッドの直近の投稿を要約して投稿する。`thread_id`必須。
     - 内部でGemini APIを呼び出し、AIユーザーとして投稿を作成する。
     - 完了後、Web Push通知（type=create）を送信する。
-  - action=generate_checklist: 指定スレッドの直近の投稿からチェックリストを生成して投稿する。`thread_id`必須。
-    - 内部でGemini APIを呼び出し、AIユーザーとして投稿を作成する。
-    - 完了後、Web Push通知（type=create）を送信する。
+  - action=generate_checklist: 指定スレッドの直近の投稿からチェックリストを生成して保存する。`thread_id`必須。
+    - 内部でGemini APIを呼び出し（JSON出力）、`checklists`, `checklist_items` テーブルに保存する。
+    - AIユーザーとして「チェックリストを作成しました」と投稿し、Web Push通知（type=create）を送信する。
+  - action=get_checklists: 指定スレッドのチェックリスト一覧を取得する。`thread_id`必須。
+  - action=get_checklist_detail: 指定チェックリストの詳細（項目含む）を取得する。`checklist_id`必須。
+  - action=update_checklist_item: チェック項目の状態を更新する。`item_id`, `is_checked`必須。

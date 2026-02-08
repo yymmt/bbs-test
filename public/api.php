@@ -460,19 +460,46 @@ try {
             throw new Exception('error_invalid_input');
         }
 
-        $prompt = "以下の会話からToDoリスト（タスク）を抽出し、Markdownのチェックボックス形式（- [ ] タスク内容）で出力してください。\n\n";
+        $prompt = "以下の会話からToDoリスト（タスク）を抽出し、JSON形式で出力してください。\n";
+        $prompt .= "出力フォーマット: { \"title\": \"チェックリストのタイトル\", \"items\": [ \"タスク1\", \"タスク2\" ] }\n";
+        $prompt .= "Markdownのコードブロックは含めず、JSON文字列のみを出力してください。\n\n";
         foreach ($posts as $post) {
             $prompt .= "{$post['name']}: {$post['body']}\n";
         }
 
         $aiText = callGeminiAPI($prompt, $config['gemini']['api_key'] ?? '');
+        
+        // JSONパース (Markdownコードブロックが含まれている場合の除去)
+        $jsonStr = preg_replace('/^```json\s*|\s*```$/', '', trim($aiText));
+        $checklistData = json_decode($jsonStr, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE || !isset($checklistData['items'])) {
+            // JSONパース失敗時はテキストとして扱う（フォールバック）
+            // 今回はエラーにするか、簡易的にタイトルだけ設定する
+            $checklistData = [
+                'title' => 'AI Generated Checklist',
+                'items' => [] // 失敗時は空
+            ];
+            error_log("JSON Parse Error: " . json_last_error_msg() . " Input: " . $aiText);
+        }
 
         // AIユーザーとして投稿
         $stmt = $pdo->prepare("INSERT INTO posts (thread_id, body, user_uuid) VALUES (?, ?, ?)");
-        $stmt->execute([$thread_id, $aiText, AI_USER_UUID]);
+        $postBody = "チェックリストを作成しました: " . $checklistData['title'];
+        $stmt->execute([$thread_id, $postBody, AI_USER_UUID]);
         $new_post_id = $pdo->lastInsertId();
 
-        sendWebPush($pdo, $config, $thread_id, AI_USER_UUID, function() use ($pdo, $thread_id, $new_post_id, $aiText) {
+        // チェックリスト保存
+        $stmt = $pdo->prepare("INSERT INTO checklists (thread_id, post_id, title) VALUES (?, ?, ?)");
+        $stmt->execute([$thread_id, $new_post_id, $checklistData['title']]);
+        $checklist_id = $pdo->lastInsertId();
+
+        $stmt = $pdo->prepare("INSERT INTO checklist_items (checklist_id, content) VALUES (?, ?)");
+        foreach ($checklistData['items'] as $item) {
+            $stmt->execute([$checklist_id, $item]);
+        }
+
+        sendWebPush($pdo, $config, $thread_id, AI_USER_UUID, function() use ($pdo, $thread_id, $new_post_id, $postBody) {
             $stmt = $pdo->prepare("SELECT title FROM threads WHERE id = ?");
             $stmt->execute([$thread_id]);
             $threadTitle = $stmt->fetchColumn();
@@ -481,11 +508,85 @@ try {
                 'thread_id' => $thread_id,
                 'post_id' => $new_post_id,
                 'title' => "AI Checklist in {$threadTitle}",
-                'body' => mb_substr($aiText, 0, 50) . '...',
+                'body' => $postBody,
                 'url' => "index.html?thread_id={$thread_id}",
                 'icon' => 'images/icons/icon.png'
             ]);
         });
+
+        echo json_encode(['success' => true]);
+
+    } elseif ($action === 'get_checklists') {
+        $thread_id = (int)($input['thread_id'] ?? 0);
+        if (empty($thread_id)) throw new Exception('error_thread_id_required');
+
+        // 権限チェック
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('error_permission_denied');
+
+        // チェックリスト一覧と進捗を取得
+        $stmt = $pdo->prepare("
+            SELECT c.id, c.title, c.created_at,
+                   COUNT(i.id) as total_items,
+                   SUM(CASE WHEN i.is_checked = 1 THEN 1 ELSE 0 END) as checked_items
+            FROM checklists c
+            LEFT JOIN checklist_items i ON c.id = i.checklist_id
+            WHERE c.thread_id = ?
+            GROUP BY c.id
+            ORDER BY c.created_at DESC
+        ");
+        $stmt->execute([$thread_id]);
+        $checklists = $stmt->fetchAll();
+
+        echo json_encode(['success' => true, 'checklists' => $checklists]);
+
+    } elseif ($action === 'get_checklist_detail') {
+        $checklist_id = (int)($input['checklist_id'] ?? 0);
+        if (empty($checklist_id)) throw new Exception('error_invalid_input');
+
+        // チェックリスト取得
+        $stmt = $pdo->prepare("SELECT * FROM checklists WHERE id = ?");
+        $stmt->execute([$checklist_id]);
+        $checklist = $stmt->fetch();
+        if (!$checklist) throw new Exception('error_invalid_input');
+
+        // 権限チェック (スレッドに参加しているか)
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$checklist['thread_id'], $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('error_permission_denied');
+
+        // アイテム取得
+        $stmt = $pdo->prepare("SELECT * FROM checklist_items WHERE checklist_id = ? ORDER BY id ASC");
+        $stmt->execute([$checklist_id]);
+        $items = $stmt->fetchAll();
+
+        echo json_encode(['success' => true, 'checklist' => $checklist, 'items' => $items]);
+
+    } elseif ($action === 'update_checklist_item') {
+        $item_id = (int)($input['item_id'] ?? 0);
+        $is_checked = (bool)($input['is_checked'] ?? false);
+        
+        if (empty($item_id)) throw new Exception('error_invalid_input');
+
+        // 権限チェックのためにスレッドIDを取得
+        $stmt = $pdo->prepare("
+            SELECT c.thread_id 
+            FROM checklist_items i 
+            JOIN checklists c ON i.checklist_id = c.id 
+            WHERE i.id = ?
+        ");
+        $stmt->execute([$item_id]);
+        $thread_id = $stmt->fetchColumn();
+
+        if (!$thread_id) throw new Exception('error_invalid_input');
+
+        $stmt = $pdo->prepare("SELECT 1 FROM thread_users WHERE thread_id = ? AND user_uuid = ?");
+        $stmt->execute([$thread_id, $user_uuid]);
+        if (!$stmt->fetch()) throw new Exception('error_permission_denied');
+
+        $stmt = $pdo->prepare("UPDATE checklist_items SET is_checked = ? WHERE id = ?");
+        $stmt->execute([$is_checked ? 1 : 0, $item_id]);
 
         echo json_encode(['success' => true]);
 
