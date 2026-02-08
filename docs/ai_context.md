@@ -7,6 +7,9 @@ Gemini Code Assist 向けの指示テキストです。
   - ai_context.md のみを修正し、他ファイルは変更しないでください。
   - 詳細設計よりは実装レベルと思われる細かい内容は、ai_context.md には書かず単に記憶しておいてください。
   - 修正が必要なファイル一覧を報告してください。ファイルの新規作成が必要な場合はファイル名を提案してください。
+    - 多言語対応が必要な修正では main.js もファイル一覧に加える
+      - api.php から画面に返すエラーコードも main.js の多言語対応部分に対応するので考慮する
+    - main.js, style.css を修正する場合は、 index.html, sw.js もファイル一覧に加える
 - コード反映の指示時:
   - ai_context.md の内容に従い、対象ファイルを修正してください。
   - 後述の「キャッシュ対策」に従って、 index.html と sw.js の v も必要に応じてインクリメントしてください。
@@ -129,6 +132,9 @@ SPA (Single Page Application) 構成とする。
   - AI要約機能:
     - 「このスレッドの直近のやりとりを要約して投稿」ボタンを設置する。
     - クリックすると、AIアシスタントが直近の投稿（10件程度）を読み込み、要約文を生成してスレッドに投稿する。
+  - AIチェックリスト生成機能:
+    - 「会話からToDoリストを作成して投稿」ボタンを設置する。
+    - クリックすると、AIアシスタントが直近の投稿からタスクを抽出し、Markdown形式のチェックリストとして投稿する。
 - AIアシスタント機能:
   - システム上に「AI Assistant」という名前の専用ユーザー（固定UUID）が存在する。
   - ユーザーからのリクエスト（ボタン押下等）に応じて、Gemini APIを利用してテキストを生成し、投稿を行う。
@@ -248,5 +254,8 @@ SPA (Single Page Application) 構成とする。
   - action=check_transfer_code: 引き継ぎコードを検証し、有効ならUUIDを返す。code必須。
   - action=register_subscription: Web Push通知の購読情報を登録。endpoint, keys[p256dh], keys[auth] 必須。
   - action=summarize_thread: 指定スレッドの直近の投稿を要約して投稿する。`thread_id`必須。
+    - 内部でGemini APIを呼び出し、AIユーザーとして投稿を作成する。
+    - 完了後、Web Push通知（type=create）を送信する。
+  - action=generate_checklist: 指定スレッドの直近の投稿からチェックリストを生成して投稿する。`thread_id`必須。
     - 内部でGemini APIを呼び出し、AIユーザーとして投稿を作成する。
     - 完了後、Web Push通知（type=create）を送信する。

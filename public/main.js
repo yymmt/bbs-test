@@ -1,4 +1,4 @@
-const APP_VERSION = 'v27';
+const APP_VERSION = 'v28';
 const API_URL = 'api.php';
 let csrfToken = '';
 let vapidPublicKey = '';
@@ -51,6 +51,7 @@ const TRANSLATIONS = {
   'btn-generate-qr': { ja: '招待用QRコードを表示', en: 'Show Invite QR Code' },
   'header-ai-features': { ja: 'AI機能', en: 'AI Features' },
   'btn-summarize': { ja: '要約して投稿', en: 'Summarize & Post' },
+  'btn-checklist': { ja: 'ToDoリスト作成', en: 'Generate Checklist' },
   
   'placeholder-type-message': { ja: 'メッセージを入力...', en: 'Type a message...' },
   
@@ -65,6 +66,7 @@ const TRANSLATIONS = {
   'msg-joined': { ja: 'スレッドに参加しました！', en: 'Joined thread successfully!' },
   'msg-remove-member': { ja: 'このメンバーを削除しますか？', en: 'Remove this member?' },
   'msg-summarize-sent': { ja: 'AIに要約を依頼しました。完了までしばらくお待ちください。', en: 'Request sent to AI. Please wait a moment.' },
+  'msg-checklist-sent': { ja: 'AIにToDoリスト作成を依頼しました。完了までしばらくお待ちください。', en: 'Request sent to AI. Please wait a moment.' },
 
   // Errors (API codes)
   'error_invalid_csrf_token': { ja: '不正なCSRFトークンです。', en: 'Invalid CSRF token' },
@@ -288,6 +290,7 @@ async function init() {
   document.getElementById('thread-rename-form').addEventListener('submit', handleUpdateThreadTitle);
   document.getElementById('summarize-btn').addEventListener('click', handleSummarizeThread);
   document.getElementById('generate-qr-btn').addEventListener('click', generateQrCode);
+  document.getElementById('checklist-btn').addEventListener('click', handleGenerateChecklist);
 
   // スクロールイベント監視（無限スクロール）
   window.addEventListener('scroll', handleScroll);
@@ -1072,6 +1075,28 @@ async function handleSummarizeThread() {
     }
   } catch (error) {
     console.error('Summarize failed', error);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+
+async function handleGenerateChecklist() {
+  if (!currentThreadId) return;
+  const btn = document.getElementById('checklist-btn');
+  btn.disabled = true;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+
+  try {
+    const data = await apiCall('generate_checklist', { thread_id: currentThreadId });
+    if (data.success) {
+      alert(t('msg-checklist-sent'));
+    } else {
+      alert(t(data.error) || data.error);
+    }
+  } catch (error) {
+    console.error('Checklist generation failed', error);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalText;
